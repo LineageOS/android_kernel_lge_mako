@@ -277,26 +277,6 @@ static int check_overlap(struct hlist_head *ptype,
 	return 0;
 }
 
-static int check_pmem_info(struct msm_pmem_info *info, int len)
-{
-	if (info->offset < len &&
-		info->offset <= (UINT_MAX - info->len) &&
-		info->offset + info->len <= len &&
-		info->planar0_off < len &&
-		info->planar1_off < len &&
-		info->planar2_off < len)
-		return 0;
-
-	pr_err("%s: check failed: off %d len %d y 0x%x cbcr_p1 0x%x p2_add 0x%x(total len %d)\n",
-		__func__,
-		info->offset,
-		info->len,
-		info->planar0_off,
-		info->planar1_off,
-		info->planar2_off,
-		len);
-	return -EINVAL;
-}
 static int msm_pmem_table_add(struct hlist_head *ptype,
 	struct msm_pmem_info *info, spinlock_t* pmem_spinlock,
 	struct msm_sync *sync)
@@ -332,10 +312,6 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 #endif
 	if (!info->len)
 		info->len = len;
-
-	rc = check_pmem_info(info, len);
-	if (rc < 0)
-		goto out2;
 
 	paddr += info->offset;
 	len = info->len;

@@ -163,26 +163,6 @@ static int msm_stats_deinit(struct msm_stats_bufq_ctrl *stats_ctrl)
 	return rc;
 }
 
-#ifdef CONFIG_ANDROID_PMEM
-static int msm_stats_check_pmem_info(struct msm_stats_buf_info *info, int len)
-{
-	if (info->offset < len &&
-		info->offset <= (UINT_MAX - info->len) &&
-		info->offset + info->len <= len &&
-		info->planar0_off < len && info->planar1_off < len)
-		return 0;
-
-	pr_err("%s: check failed: off %d len %d y %d cbcr %d (total len %d)\n",
-		   __func__,
-		   info->offset,
-		   info->len,
-		   info->planar0_off,
-		   info->planar1_off,
-		   len);
-	return -EINVAL;
-}
-#endif
-
 static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	struct msm_stats_buf_info *info, struct ion_client *client,
 	int domain_num)
@@ -228,14 +208,6 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 		pr_err("%s: cannot map address", __func__);
 		goto out2;
 	}
-#elif CONFIG_ANDROID_PMEM
-	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
-	if (rc < 0) {
-		pr_err("%s: get_pmem_file fd %d error %d\n",
-			   __func__, info->fd, rc);
-		goto out1;
-	}
-	stats_buf->file = file;
 #else
 	paddr = 0;
 	file = NULL;
@@ -243,11 +215,6 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 #endif
 	if (!info->len)
 		info->len = len;
-	rc = msm_stats_check_pmem_info(info, len);
-	if (rc < 0) {
-		pr_err("%s: msm_stats_check_pmem_info err = %d", __func__, rc);
-		goto out3;
-	}
 	paddr += info->offset;
 	len = info->len;
 	stats_buf->paddr = paddr;
@@ -258,15 +225,12 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	D("%s pmem_stats address is 0x%ld\n", __func__, paddr);
 	stats_buf->state = MSM_STATS_BUFFER_STATE_PREPARED;
 	return 0;
-out3:
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_unmap_iommu(client, stats_buf->handle, domain_num, 0);
 #endif
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 out2:
 	ion_free(client, stats_buf->handle);
-#elif CONFIG_ANDROID_PMEM
-	put_pmem_file(stats_buf->file);
 #endif
 out1:
 	return rc;
