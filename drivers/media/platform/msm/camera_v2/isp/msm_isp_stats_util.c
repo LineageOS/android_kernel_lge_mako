@@ -245,9 +245,9 @@ int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	int stats_idx = STATS_IDX(stream_release_cmd->stream_handle);
 	struct msm_vfe_stats_stream *stream_info = NULL;
 
-	if (stats_idx > MSM_ISP_STATS_MAX) {
-		pr_err("%s: Stats idx Error\n", __func__);
-		return rc;
+	if (stats_idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type) {
+		pr_err("%s Invalid stats index %d", __func__, stats_idx);
+		return -EINVAL;
 	}
 
 	stream_info = &stats_data->stream_info[stats_idx];
