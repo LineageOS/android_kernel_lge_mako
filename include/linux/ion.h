@@ -530,7 +530,11 @@ static inline struct ion_handle *ion_dma_buf_to_handle(
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
+#ifdef __KERNEL__
 	unsigned int heap_mask;
+#else
+	unsigned int heap_id_mask;
+#endif
 	unsigned int flags;
 	struct ion_handle *handle;
 };
