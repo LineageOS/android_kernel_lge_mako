@@ -2309,7 +2309,7 @@ static int vfe40_proc_general(
 		}
 		msm_camera_io_dump(vfe40_ctrl->share_ctrl->vfebase,
 			vfe40_ctrl->share_ctrl->register_total*4);
-		CDBG("%s: %p %p %d\n", __func__, (void *)cmdp,
+		CDBG("%s: %pK %pK %d\n", __func__, (void *)cmdp,
 			vfe40_ctrl->share_ctrl->vfebase, temp1);
 		memcpy_fromio((void *)cmdp,
 			vfe40_ctrl->share_ctrl->vfebase, temp1);

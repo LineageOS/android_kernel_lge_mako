@@ -58,7 +58,7 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	CPP_DBG("open %d %p\n", i, &fh->vfh);
+	CPP_DBG("open %d %pK\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt++;
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;
@@ -82,7 +82,7 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -ENODEV;
 	}
 
-	CPP_DBG("close %d %p\n", i, &fh->vfh);
+	CPP_DBG("close %d %pK\n", i, &fh->vfh);
 	cpp_dev->cpp_open_cnt--;
 	mutex_unlock(&cpp_dev->mutex);
 	return 0;

@@ -3186,7 +3186,7 @@ static int vfe32_proc_general(
 		}
 		msm_camera_io_dump(vfe32_ctrl->share_ctrl->vfebase,
 			vfe32_ctrl->share_ctrl->register_total*4);
-		CDBG("%s: %p %p %d\n", __func__, (void *)cmdp,
+		CDBG("%s: %pK %pK %d\n", __func__, (void *)cmdp,
 			vfe32_ctrl->share_ctrl->vfebase, temp1);
 		memcpy_fromio((void *)cmdp,
 			vfe32_ctrl->share_ctrl->vfebase, temp1);
@@ -6283,7 +6283,7 @@ static ssize_t dump_vfe_registers(struct file *file, char __user *buff,
 	if (!debugfs_base || !debugfs_reg_total)
 		return 0;
 
-	len = snprintf(p_str, buflen, "\nAddr: %p Size: %d\n",
+	len = snprintf(p_str, buflen, "\nAddr: %pK Size: %d\n",
 		debugfs_base, debugfs_reg_total);
 	p_str += len;
 	total += len;

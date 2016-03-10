@@ -265,9 +265,9 @@ static int check_overlap(struct hlist_head *ptype,
 		if (CONTAINS(region, &t, paddr) ||
 				CONTAINS(&t, region, paddr) ||
 				OVERLAPS(region, &t, paddr)) {
-			CDBG(" region (PHYS %p len %ld)"
+			CDBG(" region (PHYS %pK len %ld)"
 				" clashes with registered region"
-				" (paddr %p len %ld)\n",
+				" (paddr %pK len %ld)\n",
 				(void *)t.paddr, t.len,
 				(void *)region->paddr, region->len);
 			return -1;
@@ -615,7 +615,7 @@ static unsigned long msm_pmem_stats_vtop_lookup(
 	pr_err("%s,look up error for vaddr %ld\n",
 			__func__, buffer);
 	hlist_for_each_entry_safe(region, node, n, &sync->pmem_stats, list) {
-		pr_err("listed vaddr 0x%p, active = %d",
+		pr_err("listed vaddr 0x%pK, active = %d",
 				region->info.vaddr,
 				region->info.active);
 	}
@@ -654,7 +654,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				put_pmem_file(region->file);
 #endif
 				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
+				CDBG("%s: type %d, vaddr  0x%pK\n",
 					__func__, pinfo->type, pinfo->vaddr);
 			}
 		}
@@ -678,7 +678,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				put_pmem_file(region->file);
 #endif
 				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
+				CDBG("%s: type %d, vaddr  0x%pK\n",
 					__func__, pinfo->type, pinfo->vaddr);
 			}
 		}
@@ -701,7 +701,7 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				put_pmem_file(region->file);
 #endif
 				kfree(region);
-				CDBG("%s: type %d, vaddr  0x%p\n",
+				CDBG("%s: type %d, vaddr  0x%pK\n",
 					__func__, pinfo->type, pinfo->vaddr);
 			}
 		}

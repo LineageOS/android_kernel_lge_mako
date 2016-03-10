@@ -859,7 +859,7 @@ static void msm_camera_io_dump2(void __iomem *addr, int size)
 	int i;
 	u32 *p = (u32 *) addr;
 	u32 data;
-	CDBG("%s: %p %d\n", __func__, addr, size);
+	CDBG("%s: %pK %d\n", __func__, addr, size);
 	line_str[0] = '\0';
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
@@ -2332,7 +2332,7 @@ static int vfe31_proc_general(
 		}
 		msm_camera_io_dump(
 			vfe31_ctrl->vfebase, vfe31_ctrl->register_total*4);
-		CDBG("%s: %p %p %d\n", __func__, (void *)cmdp,
+		CDBG("%s: %pK %pK %d\n", __func__, (void *)cmdp,
 			vfe31_ctrl->vfebase, temp1);
 		memcpy_fromio((void *)cmdp, vfe31_ctrl->vfebase, temp1);
 		if (copy_to_user((void __user *)(cmd->value), cmdp, temp1)) {

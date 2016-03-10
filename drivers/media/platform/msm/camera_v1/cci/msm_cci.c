@@ -603,7 +603,7 @@ static int __devinit msm_cci_probe(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_cam_subdev_info sd_info;
 	struct intr_table_entry irq_req;
-	CDBG("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
+	CDBG("%s: pdev %pK device id = %d\n", __func__, pdev, pdev->id);
 	new_cci_dev = kzalloc(sizeof(struct cci_device), GFP_KERNEL);
 	if (!new_cci_dev) {
 		CDBG("%s: no enough memory\n", __func__);
@@ -616,7 +616,7 @@ static int __devinit msm_cci_probe(struct platform_device *pdev)
 			ARRAY_SIZE(new_cci_dev->subdev.name), "msm_cci");
 	v4l2_set_subdevdata(&new_cci_dev->subdev, new_cci_dev);
 	platform_set_drvdata(pdev, &new_cci_dev->subdev);
-	CDBG("%s sd %p\n", __func__, &new_cci_dev->subdev);
+	CDBG("%s sd %pK\n", __func__, &new_cci_dev->subdev);
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);

@@ -57,7 +57,7 @@ static int msm_vb2_ops_queue_setup(struct vb2_queue *vq,
 	*num_planes = pcam_inst->plane_info.num_planes;
 	for (i = 0; i < pcam_inst->vid_fmt.fmt.pix_mp.num_planes; i++) {
 		sizes[i] = pcam_inst->plane_info.plane[i].size;
-		D("%s Inst %p : Plane %d Offset = %d Size = %ld"
+		D("%s Inst %pK : Plane %d Offset = %d Size = %ld"
 			"Aligned Size = %d", __func__, pcam_inst, i,
 			pcam_inst->plane_info.plane[i].offset,
 			pcam_inst->plane_info.plane[i].size, sizes[i]);
@@ -126,7 +126,7 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
 		if (mem == NULL) {
-			pr_err("%s Inst %p Buffer %d Plane %d cookie is null",
+			pr_err("%s Inst %pK Buffer %d Plane %d cookie is null",
 				__func__, pcam_inst, buf_idx, i);
 			return -EINVAL;
 		}
@@ -226,7 +226,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 		for (i = 0; i < vb->num_planes; i++) {
 			mem = vb2_plane_cookie(vb, i);
 			if (!mem) {
-				D("%s Inst %p memory already freed up. return",
+				D("%s Inst %pK memory already freed up. return",
 					__func__, pcam_inst);
 				return;
 			}
@@ -278,7 +278,7 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 			videobuf2_pmem_contig_user_put(mem, pmctl->client,
 				pmctl->domain_num);
 		} else {
-			pr_err("%s Inst %p buffer plane cookie is null",
+			pr_err("%s Inst %pK buffer plane cookie is null",
 				__func__, pcam_inst);
 			return;
 		}
@@ -317,7 +317,7 @@ static int msm_vb2_ops_stop_streaming(struct vb2_queue *q)
 			&pcam_inst->free_vq, list) {
 
 		if (buf == NULL) {
-			D("%s Inst %p NULL buffer ptr",
+			D("%s Inst %pK NULL buffer ptr",
 				__func__, pcam_inst);
 			break;
 		}
@@ -350,7 +350,7 @@ static void msm_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	vq = vb->vb2_queue;
 	pcam_inst = vb2_get_drv_priv(vq);
 	pcam = pcam_inst->pcam;
-	D("%s pcam_inst=%p,(vb=0x%p),idx=%d,len=%d\n",
+	D("%s pcam_inst=%p,(vb=0x%pK),idx=%d,len=%d\n",
 		__func__, pcam_inst,
 	vb, vb->v4l2_buf.index, vb->v4l2_buf.length);
 	D("%s pcam_inst=%p, idx=%d\n", __func__, pcam_inst,
@@ -439,7 +439,7 @@ struct msm_frame_buffer *msm_mctl_buf_find(
 		buf_idx = buf->vidbuf.v4l2_buf.index;
 		mem = vb2_plane_cookie(&buf->vidbuf, 0);
 		if (mem == NULL) {
-			pr_err("%s Inst %p plane cookie is null",
+			pr_err("%s Inst %pK plane cookie is null",
 				__func__, pcam_inst);
 			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 			return NULL;
@@ -630,24 +630,24 @@ struct msm_cam_v4l2_dev_inst *msm_mctl_get_inst_by_img_mode(
 		&& is_buffer_queued(pcam, img_mode)) {
 			idx = pcam->mctl_node.dev_inst_map[img_mode]->my_index;
 			pcam_inst = pcam->mctl_node.dev_inst[idx];
-			D("%s Found instance %p in mctl node device\n",
+			D("%s Found instance %pK in mctl node device\n",
 				__func__, pcam_inst);
 		} else if (pcam->dev_inst_map[img_mode]) {
 			idx = pcam->dev_inst_map[img_mode]->my_index;
 			pcam_inst = pcam->dev_inst[idx];
-			D("%s Found instance %p in video device\n",
+			D("%s Found instance %pK in video device\n",
 				__func__, pcam_inst);
 		}
 	} else {
 		if (pcam->mctl_node.dev_inst_map[img_mode]) {
 			idx = pcam->mctl_node.dev_inst_map[img_mode]->my_index;
 			pcam_inst = pcam->mctl_node.dev_inst[idx];
-			D("%s Found instance %p in mctl node device\n",
+			D("%s Found instance %pK in mctl node device\n",
 				__func__, pcam_inst);
 		} else if (pcam->dev_inst_map[img_mode]) {
 			idx = pcam->dev_inst_map[img_mode]->my_index;
 			pcam_inst = pcam->dev_inst[idx];
-			D("%s Found instance %p in video device\n",
+			D("%s Found instance %pK in video device\n",
 				__func__, pcam_inst);
 		}
 	}
@@ -737,14 +737,14 @@ int msm_mctl_reserve_free_buf(
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
 	if (pcam_inst->free_vq.next == NULL) {
-		pr_err("%s Inst %p Free queue head is null",
+		pr_err("%s Inst %pK Free queue head is null",
 			__func__, pcam_inst);
 		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 		return rc;
 	}
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
 		if (buf == NULL) {
-			pr_err("%s Inst %p Invalid buffer ptr",
+			pr_err("%s Inst %pK Invalid buffer ptr",
 				__func__, pcam_inst);
 			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 			return rc;
@@ -760,7 +760,7 @@ int msm_mctl_reserve_free_buf(
 			for (i = 0; i < free_buf->num_planes; i++) {
 				mem = vb2_plane_cookie(&buf->vidbuf, i);
 				if (mem == NULL) {
-					pr_err("%s Inst %p %d invalid cookie",
+					pr_err("%s Inst %pK %d invalid cookie",
 						__func__, pcam_inst, buf_idx);
 					spin_unlock_irqrestore(
 						&pcam_inst->vq_irqlock, flags);
@@ -787,7 +787,7 @@ int msm_mctl_reserve_free_buf(
 		} else {
 			mem = vb2_plane_cookie(&buf->vidbuf, 0);
 			if (mem == NULL) {
-				pr_err("%s Inst %p %d invalid cookie",
+				pr_err("%s Inst %pK %d invalid cookie",
 					__func__, pcam_inst, buf_idx);
 				spin_unlock_irqrestore(
 					&pcam_inst->vq_irqlock, flags);
@@ -801,7 +801,7 @@ int msm_mctl_reserve_free_buf(
 		}
 		free_buf->vb = (uint32_t)buf;
 		buf->state = MSM_BUFFER_STATE_RESERVED;
-		D("%s inst=0x%p, idx=%d, paddr=0x%x, "
+		D("%s inst=0x%pK, idx=%d, paddr=0x%x, "
 			"ch1 addr=0x%x\n", __func__,
 			pcam_inst, buf->vidbuf.v4l2_buf.index,
 			free_buf->ch_paddr[0], free_buf->ch_paddr[1]);
@@ -809,7 +809,7 @@ int msm_mctl_reserve_free_buf(
 		break;
 	}
 	if (rc != 0)
-		D("%s:No free buffer available: inst = 0x%p ",
+		D("%s:No free buffer available: inst = 0x%pK ",
 				__func__, pcam_inst);
 	spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
 	return rc;
@@ -896,7 +896,7 @@ int msm_mctl_buf_done_pp(struct msm_cam_media_controller *pmctl,
 		return -EINVAL;
 	}
 
-	D("%s:inst=0x%p, paddr=0x%x, dirty=%d",
+	D("%s:inst=0x%pK, paddr=0x%x, dirty=%d",
 		__func__, pcam_inst, frame->ch_paddr[0], ret_frame->dirty);
 	cam_ts.present = 1;
 	cam_ts.timestamp = ret_frame->timestamp;
@@ -927,7 +927,7 @@ int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
 	if (pcam->mctl_node.dev_inst_map[image_mode]) {
 		idx = pcam->mctl_node.dev_inst_map[image_mode]->my_index;
 		pcam_inst = pcam->mctl_node.dev_inst[idx];
-		D("%s Found instance %p in mctl node device\n",
+		D("%s Found instance %pK in mctl node device\n",
 			__func__, pcam_inst);
 	} else {
 		pr_err("%s Invalid image mode %d ", __func__, image_mode);
@@ -943,7 +943,7 @@ int msm_mctl_buf_return_buf(struct msm_cam_media_controller *pmctl,
 	if (!list_empty(&pcam_inst->free_vq)) {
 		list_for_each_entry(buf, &pcam_inst->free_vq, list) {
 			if (rbuf == buf) {
-				D("%s Return buffer %x in pcam_inst %p ",
+				D("%s Return buffer %x in pcam_inst %pK ",
 				__func__, (int)rbuf, pcam_inst);
 				buf->state = MSM_BUFFER_STATE_QUEUED;
 				spin_unlock_irqrestore(&pcam_inst->vq_irqlock,
@@ -963,7 +963,7 @@ static void __msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
 {
 	int i = 0;
 	for (i = 0; i < meta_frame->frame.num_planes; i++) {
-		D("%s Plane %d handle %p", __func__, i,
+		D("%s Plane %d handle %pK", __func__, i,
 			meta_frame->map[i].handle);
 		ion_unmap_iommu(client, meta_frame->map[i].handle,
 					domain_num, 0);
@@ -994,7 +994,7 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 			}
 			return -EACCES;
 		}
-		D("%s Mapping fd %d plane %d handle %p", __func__,
+		D("%s Mapping fd %d plane %d handle %pK", __func__,
 			meta_frame->frame.mp[i].fd, i,
 			meta_frame->map[i].handle);
 		if (ion_map_iommu(client, meta_frame->map[i].handle,
@@ -1046,7 +1046,7 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 		paddr += meta_frame->frame.mp[i].addr_offset;
 		meta_frame->map[i].paddr = paddr;
 		meta_frame->map[i].len = len;
-		D("%s Plane %d fd %d handle %p paddr %x", __func__,
+		D("%s Plane %d fd %d handle %pK paddr %x", __func__,
 			i, meta_frame->frame.mp[i].fd,
 			meta_frame->map[i].handle,
 			(uint32_t)meta_frame->map[i].paddr);
@@ -1062,7 +1062,7 @@ static int __msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
 	int i = 0, rc = 0;
 
 	for (i = 0; i < meta_frame->frame.num_planes; i++) {
-		D("%s Plane %d handle %p", __func__, i,
+		D("%s Plane %d handle %pK", __func__, i,
 			meta_frame->map[i].handle);
 		put_pmem_file(meta_frame->map[i].file);
 	}
@@ -1091,7 +1091,7 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 
 			return -EACCES;
 		}
-		D("%s Got pmem file for fd %d plane %d as %p", __func__,
+		D("%s Got pmem file for fd %d plane %d as %pK", __func__,
 			meta_frame->frame.mp[i].fd, i, file);
 		meta_frame->map[i].file = file;
 		/* Validate the offsets with the mapped length. */
@@ -1118,7 +1118,7 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 		paddr += meta_frame->frame.mp[i].addr_offset;
 		meta_frame->map[i].paddr = paddr;
 		meta_frame->map[i].len = len;
-		D("%s Plane %d fd %d handle %p paddr %x", __func__,
+		D("%s Plane %d fd %d handle %pK paddr %x", __func__,
 			i, meta_frame->frame.mp[i].fd,
 			meta_frame->map[i].handle,
 			(uint32_t)meta_frame->map[i].paddr);

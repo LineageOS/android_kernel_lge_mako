@@ -942,7 +942,7 @@ int msm_server_v4l2_subscribe_event(struct v4l2_fh *fh,
 	int rc = 0;
 
 	if (!fh || !sub) {
-		pr_err("%s: NULL pointer fh 0x%p sub 0x%p",
+		pr_err("%s: NULL pointer fh 0x%pK sub 0x%pK",
 			__func__, fh, sub);
 		return -EINVAL;
 	}
@@ -987,7 +987,7 @@ int msm_server_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 	struct v4l2_event ev;
 
 	if (!fh || !sub) {
-		pr_err("%s: NULL pointer fh 0x%p sub 0x%p",
+		pr_err("%s: NULL pointer fh 0x%pK sub 0x%pK",
 			__func__, fh, sub);
 		return -EINVAL;
 	}
@@ -1048,7 +1048,7 @@ static int msm_cam_server_open_session(struct msm_cam_server_dev *ps,
 	ps->pcam_active[pcam->server_queue_idx] = pcam;
 	atomic_inc(&ps->number_pcam_active);
 
-	D("config pcam = 0x%p\n", pcam);
+	D("config pcam = 0x%pK\n", pcam);
 
 	/* initialization the media controller module*/
 	msm_mctl_init(pcam);
@@ -2017,7 +2017,7 @@ int msm_cam_server_request_irq(void *arg)
 			 * IRQ will only be dispatched to single subdev. */
 			memset(&comp_irq_tbl[irq_req->irq_idx], 0,
 					sizeof(struct intr_table_entry));
-			D("%s Saving Entry %d %d %d %p",
+			D("%s Saving Entry %d %d %d %pK",
 			__func__,
 			ind_irq_tbl[irq_req->irq_idx].irq_num,
 			ind_irq_tbl[irq_req->irq_idx].cam_hw_idx,

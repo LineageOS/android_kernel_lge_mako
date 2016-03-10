@@ -206,7 +206,7 @@ static int msm_gesture_handle_event(struct v4l2_subdev *sd,
 	p_gesture_ctrl->event.evt_data = NULL;
 
 	p_ges_evt = (struct msm_ges_evt *)evt->u.data;
-	D("%s: event data %p len %d", __func__,
+	D("%s: event data %pK len %d", __func__,
 		p_ges_evt->evt_data,
 		p_ges_evt->evt_len);
 
@@ -248,7 +248,7 @@ static int msm_gesture_get_evt_payload(struct v4l2_subdev *sd,
 	struct msm_ges_evt *p_ges_evt = (struct msm_ges_evt *)arg;
 	D("%s: enter ", __func__);
 	if (NULL != p_gesture_ctrl->event.evt_data) {
-		D("%s: event data %p len %d", __func__,
+		D("%s: event data %pK len %d", __func__,
 			p_gesture_ctrl->event.evt_data,
 			p_gesture_ctrl->event.evt_len);
 
@@ -305,7 +305,7 @@ long msm_gesture_ioctl(struct v4l2_subdev *sd,
 	switch (cmd) {
 	case MSM_GES_IOCTL_CTRL_COMMAND: {
 		struct v4l2_control *ctrl = (struct v4l2_control *)arg;
-		D("%s MSM_GES_IOCTL_CTRL_COMMAND arg %p size %d\n", __func__,
+		D("%s MSM_GES_IOCTL_CTRL_COMMAND arg %pK size %d\n", __func__,
 			arg, sizeof(ctrl));
 		rc = msm_gesture_s_ctrl(sd, ctrl);
 		break;

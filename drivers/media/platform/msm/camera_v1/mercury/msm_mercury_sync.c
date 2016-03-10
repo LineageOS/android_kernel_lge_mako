@@ -403,7 +403,7 @@ int __msm_mercury_open(struct msm_mercury_device *pmercury_dev)
 		return rc;
 	}
 
-	MCR_DBG("\n%s:%d] platform resources - mem 0x%p, base 0x%p, irq %d\n",
+	MCR_DBG("\n%s:%d] platform resources - mem 0x%pK, base 0x%pK, irq %d\n",
 		__func__, __LINE__, pmercury_dev->mem, pmercury_dev->base,
 		pmercury_dev->irq);
 

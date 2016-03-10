@@ -1678,7 +1678,7 @@ static int msm_sensor_subdev_match_core(struct device *dev, void *data)
 {
 	int core_index = (int)data;
 	struct platform_device *pdev = to_platform_device(dev);
-	CDBG("%s cci pdev %p\n", __func__, pdev);
+	CDBG("%s cci pdev %pK\n", __func__, pdev);
 	if (pdev->id == core_index)
 		return 1;
 	else
@@ -1692,7 +1692,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	struct device_driver *driver;
 	struct device *dev;
 	s_ctrl->pdev = pdev;
-	CDBG("%s called data %p\n", __func__, data);
+	CDBG("%s called data %pK\n", __func__, data);
 	if (pdev->dev.of_node) {
 		rc = msm_sensor_init_sensor_data(pdev, s_ctrl);
 		if (rc < 0) {
@@ -1720,7 +1720,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	}
 	s_ctrl->sensor_i2c_client->cci_client->cci_subdev =
 		dev_get_drvdata(dev);
-	CDBG("%s sd %p\n", __func__,
+	CDBG("%s sd %pK\n", __func__,
 		s_ctrl->sensor_i2c_client->cci_client->cci_subdev);
 	s_ctrl->sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
 	s_ctrl->sensor_i2c_client->cci_client->sid =

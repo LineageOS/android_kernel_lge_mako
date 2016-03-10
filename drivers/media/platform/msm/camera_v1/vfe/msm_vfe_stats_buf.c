@@ -217,7 +217,7 @@ static int msm_stats_buf_prepare(struct msm_stats_bufq_ctrl *stats_ctrl,
 	stats_buf->handle = ion_import_dma_buf(client, info->fd);
 	if (IS_ERR_OR_NULL(stats_buf->handle)) {
 		rc = -EINVAL;
-		pr_err("%s: stats_buf has null/error ION handle %p",
+		pr_err("%s: stats_buf has null/error ION handle %pK",
 			   __func__, stats_buf->handle);
 		goto out1;
 	}

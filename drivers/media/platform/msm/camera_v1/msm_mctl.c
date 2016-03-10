@@ -191,7 +191,7 @@ static int msm_mctl_set_vfe_output_mode(struct msm_cam_media_controller
 		pr_err("%s Copy from user failed ", __func__);
 		rc = -EFAULT;
 	} else {
-		pr_info("%s: mctl=0x%p, vfe output mode =0x%x",
+		pr_info("%s: mctl=0x%pK, vfe output mode =0x%x",
 		  __func__, p_mctl, p_mctl->vfe_output_mode);
 	}
 	return rc;
@@ -801,7 +801,7 @@ static int msm_mctl_dev_open(struct file *f)
 	pcam_inst->pcam = pcam;
 	pcam->mctl_node.dev_inst[i] = pcam_inst;
 
-	D("%s pcam_inst %p my_index = %d\n", __func__,
+	D("%s pcam_inst %pK my_index = %d\n", __func__,
 		pcam_inst, pcam_inst->my_index);
 	rc = msm_cam_server_open_mctl_session(pcam,
 		&pcam->mctl_node.active);
@@ -854,7 +854,7 @@ static unsigned int msm_mctl_dev_poll(struct file *f,
 			struct msm_cam_v4l2_dev_inst, eventHandle);
 	pcam = pcam_inst->pcam;
 
-	D("%s : E pcam_inst = %p", __func__, pcam_inst);
+	D("%s : E pcam_inst = %pK", __func__, pcam_inst);
 	if (!pcam) {
 		pr_err("%s NULL pointer of camera device!\n", __func__);
 		return -EINVAL;
@@ -913,7 +913,7 @@ static int msm_mctl_dev_close(struct file *f)
 	pcam->mctl_node.dev_inst_map[pcam_inst->image_mode] = NULL;
 	if (pcam_inst->vbqueue_initialized)
 		vb2_queue_release(&pcam_inst->vid_bufq);
-	D("%s Closing down instance %p ", __func__, pcam_inst);
+	D("%s Closing down instance %pK ", __func__, pcam_inst);
 	pcam->mctl_node.dev_inst[pcam_inst->my_index] = NULL;
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 	CLR_MCTLPP_INST_IDX(pcam_inst->inst_handle);
@@ -1010,11 +1010,11 @@ static int msm_mctl_v4l2_s_ctrl(struct file *f, void *pctx,
 		if (copy_from_user(&pcam_inst->plane_info,
 					(void *)ctrl->value,
 					sizeof(struct img_plane_info))) {
-			pr_err("%s inst %p Copying plane_info failed ",
+			pr_err("%s inst %pK Copying plane_info failed ",
 					__func__, pcam_inst);
 			rc = -EFAULT;
 		}
-		D("%s inst %p got plane info: num_planes = %d,"
+		D("%s inst %pK got plane info: num_planes = %d,"
 				"plane size = %ld %ld ", __func__, pcam_inst,
 				pcam_inst->plane_info.num_planes,
 				pcam_inst->plane_info.plane[0].size,
@@ -1058,7 +1058,7 @@ static int msm_mctl_v4l2_reqbufs(struct file *f, void *pctx,
 	}
 	if (!pb->count) {
 		/* Deallocation. free buf_offset array */
-		D("%s Inst %p freeing buffer offsets array",
+		D("%s Inst %pK freeing buffer offsets array",
 			__func__, pcam_inst);
 		for (j = 0 ; j < pcam_inst->buf_count ; j++) {
 			kfree(pcam_inst->buf_offset[j]);
@@ -1073,7 +1073,7 @@ static int msm_mctl_v4l2_reqbufs(struct file *f, void *pctx,
 			pcam_inst->vbqueue_initialized = 0;
 		}
 	} else {
-		D("%s Inst %p Allocating buf_offset array",
+		D("%s Inst %pK Allocating buf_offset array",
 			__func__, pcam_inst);
 		/* Allocation. allocate buf_offset array */
 		pcam_inst->buf_offset = (struct msm_cam_buf_offset **)
@@ -1102,7 +1102,7 @@ static int msm_mctl_v4l2_reqbufs(struct file *f, void *pctx,
 		}
 	}
 	pcam_inst->buf_count = pb->count;
-	D("%s inst %p, buf count %d ", __func__,
+	D("%s inst %pK, buf count %d ", __func__,
 		pcam_inst, pcam_inst->buf_count);
 	mutex_unlock(&pcam_inst->inst_lock);
 	return rc;
@@ -1134,7 +1134,7 @@ static int msm_mctl_v4l2_qbuf(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst = %p\n", __func__, pcam_inst);
+	D("%s Inst = %pK\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	mutex_lock(&pcam_inst->inst_lock);
@@ -1161,7 +1161,7 @@ static int msm_mctl_v4l2_qbuf(struct file *f, void *pctx,
 			pcam_inst->buf_offset[pb->index][i].addr_offset =
 				pb->m.planes[i].reserved[0];
 			pcam_inst->plane_info.plane[i].offset = 0;
-			D("%s, len %d user[%d] %p buf_len %d\n",
+			D("%s, len %d user[%d] %pK buf_len %d\n",
 				__func__, pb->length, i,
 				(void *)pb->m.planes[i].m.userptr,
 				pb->m.planes[i].length);
@@ -1212,7 +1212,7 @@ static int msm_mctl_v4l2_streamon(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst %p\n", __func__, pcam_inst);
+	D("%s Inst %pK\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	mutex_lock(&pcam->mctl_node.dev_lock);
@@ -1248,7 +1248,7 @@ static int msm_mctl_v4l2_streamoff(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst %p\n", __func__, pcam_inst);
+	D("%s Inst %pK\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	if ((buf_type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
@@ -1378,7 +1378,7 @@ static int msm_mctl_v4l2_s_fmt_cap_mplane(struct file *f, void *pctx,
 	pcam_inst = container_of(f->private_data,
 			struct msm_cam_v4l2_dev_inst, eventHandle);
 
-	D("%s Inst %p\n", __func__, pcam_inst);
+	D("%s Inst %pK\n", __func__, pcam_inst);
 	WARN_ON(pctx != f->private_data);
 
 	for (i = 0; i < pcam->num_fmts; i++)
