@@ -35,7 +35,18 @@ struct gpio_keys_platform_data {
 #define RESETKEY_RELEASE		0x0002 /* power key is released */
 #define RESETKEY_PREPARE_HWREST		0x0003 /* Going to reset whole system by pmic*/
 
+#ifdef CONFIG_KEYBOARD_GPIO
 extern int register_resetkey_notifier(struct notifier_block *nb);
 extern int unregister_resetkey_notifier(struct notifier_block *nb);
+#else
+static inline int register_resetkey_notifier(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int unregister_resetkey_notifier(struct notifier_block *nb)
+{
+	return 0;
+}
+#endif
 
 #endif
