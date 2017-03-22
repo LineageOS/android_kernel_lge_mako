@@ -268,6 +268,9 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	else
 		down(&mfd->dma->mutex);
 
+#ifdef CONFIG_FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
+	if (mfd->op_enable)
+#endif
 	ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);
