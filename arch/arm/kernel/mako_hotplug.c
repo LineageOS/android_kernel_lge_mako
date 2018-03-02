@@ -259,23 +259,6 @@ static void __ref mako_hotplug_resume(struct work_struct *work)
 	pr_info("%s: resume\n", MAKO_HOTPLUG);
 }
 
-static void mako_hotplug_early_suspend(struct early_suspend *handler)
-{
-	queue_work_on(0, wq, &suspend);
-}
-
-static void mako_hotplug_late_resume(struct early_suspend *handler)
-{
-	queue_work_on(0, wq, &resume);
-}
-
-static struct early_suspend early_suspend =
-{
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB,
-	.suspend = mako_hotplug_early_suspend,
-	.resume = mako_hotplug_late_resume,
-};
-
 /*
  * Sysfs get/set entries start
  */
@@ -496,8 +479,6 @@ static int __devinit mako_hotplug_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 
 	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 30);
-
-	register_early_suspend(&early_suspend);
 err:
 	return ret;
 }
@@ -510,7 +491,6 @@ static struct platform_device mako_hotplug_device = {
 static int mako_hotplug_remove(struct platform_device *pdev)
 {
 	destroy_workqueue(wq);
-	unregister_early_suspend(&early_suspend);
 	return 0;
 }
 
