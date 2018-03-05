@@ -733,7 +733,7 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 {
 	struct super_block *sb = old->mnt.mnt_sb;
 	struct mount *mnt;
-	int err;
+	int err = 0;
 
 	mnt = alloc_vfsmnt(old->mnt_devname);
 	if (!mnt)
