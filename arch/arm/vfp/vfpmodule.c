@@ -704,7 +704,7 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 	return NOTIFY_OK;
 }
 
-#ifdef CONFIG_PROC_FS
+#if 0
 static int vfp_bounce_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%llu\n", atomic64_read(&vfp_bounce_count));
@@ -731,7 +731,7 @@ static int __init vfp_init(void)
 {
 	unsigned int vfpsid;
 	unsigned int cpu_arch = cpu_architecture();
-#ifdef CONFIG_PROC_FS
+#if 0
 	static struct proc_dir_entry *procfs_entry;
 #endif
 	if (cpu_arch >= CPU_ARCH_ARMv6)
@@ -808,7 +808,7 @@ static int __init vfp_init(void)
 		}
 	}
 
-#ifdef CONFIG_PROC_FS
+#if 0
 	procfs_entry = proc_create("cpu/vfp_bounce", S_IRUGO, NULL,
 			&vfp_bounce_fops);
 	if (!procfs_entry)
