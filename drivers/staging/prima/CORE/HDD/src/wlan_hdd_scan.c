@@ -534,7 +534,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
    /* AGE */
    event.cmd = IWEVCUSTOM;
    p = custom;
-   p += scnprintf(p, MAX_CUSTOM_LEN, " Age: %lu",
+   p += snprintf(p, MAX_CUSTOM_LEN, " Age: %lu",
                  vos_timer_get_system_ticks() - descriptor->nReceivedTime);
    event.u.data.length = p - custom;
    current_event = iwe_stream_add_point (scanInfo->info,current_event, end,
@@ -685,8 +685,7 @@ int iw_set_scan(struct net_device *dev, struct iw_request_info *info,
 
       if (wrqu->data.flags & IW_SCAN_THIS_ESSID)  {
 
-          if(scanReq->essid_len &&
-               (scanReq->essid_len <= SIR_MAC_MAX_SSID_LENGTH)) {
+          if(scanReq->essid_len) {
               scanRequest.SSIDs.numOfSSIDs = 1;
               scanRequest.SSIDs.SSIDList =( tCsrSSIDInfo *)vos_mem_malloc(sizeof(tCsrSSIDInfo));
               if(scanRequest.SSIDs.SSIDList) {
@@ -699,10 +698,6 @@ int iw_set_scan(struct net_device *dev, struct iw_request_info *info,
                 VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR, "%s: Unable to allocate memory",__func__);
                 VOS_ASSERT(0);
               }
-          }
-          else
-          {
-            hddLog(LOGE, FL("Invalid essid length : %d"), scanReq->essid_len);
           }
       }
 
