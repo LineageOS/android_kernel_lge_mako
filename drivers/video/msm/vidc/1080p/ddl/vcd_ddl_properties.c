@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,6 +163,27 @@ u32 ddl_encoder_ready_to_start(struct ddl_client_context *ddl)
 		DDL_MSG_ERROR("H264BaseLineCABAC!!");
 		return false;
 	}
+	if (DDL_IS_LTR_ENABLED(encoder)) {
+		if ((encoder->codec.codec != VCD_CODEC_H264) ||
+			(encoder->i_period.b_frames)) {
+			DDL_MSG_ERROR("%s: Only support LTR encoding "\
+				"for H264 without B frame. Current "\
+				"codec %d, B-frame %d", __func__,
+				encoder->codec.codec,
+				encoder->i_period.b_frames);
+			return false;
+		}
+		if (encoder->ltr_control.ltrmode.ltr_mode ==
+			VCD_LTR_MODE_MANUAL) {
+			DDL_MSG_ERROR("%s: Manual LTR mode not supported!",
+				__func__);
+			return false;
+		}
+		DDL_MSG_HIGH("%s: LTR: mode = %u, count = %u, period = %u",
+			__func__, (u32)encoder->ltr_control.ltrmode.ltr_mode,
+		encoder->ltr_control.ltr_count,
+		encoder->ltr_control.ltr_period);
+	}
 	return true;
 }
 
@@ -219,6 +240,13 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 			(ddl_valid_buffer_requirement(
 			&decoder->min_input_buf_req, buffer_req))) {
 			decoder->client_input_buf_req = *buffer_req;
+			DDL_MSG_HIGH("set DDL_IN_BUF_REQ: min = %u, "\
+				"max = %u, act = %u, size = %u, align = %u, "\
+				"buf_pool_id = %u, meta_buf_size = %u",
+				buffer_req->min_count, buffer_req->max_count,
+				buffer_req->actual_count, buffer_req->sz,
+				buffer_req->align, buffer_req->buf_pool_id,
+				buffer_req->meta_buffer_size);
 			vcd_status = VCD_S_SUCCESS;
 		}
 	}
@@ -236,9 +264,15 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN)) &&
 			(ddl_valid_buffer_requirement(
 			&decoder->min_output_buf_req, buffer_req))) {
-				decoder->client_output_buf_req =
-					*buffer_req;
-				vcd_status = VCD_S_SUCCESS;
+			decoder->client_output_buf_req = *buffer_req;
+			DDL_MSG_HIGH("set DDL_OUT_BUF_REQ: min = %u, "\
+				"max = %u, act = %u, size = %u, align = %u, "\
+				"buf_pool_id = %u, meta_buf_size = %u",
+				buffer_req->min_count, buffer_req->max_count,
+				buffer_req->actual_count, buffer_req->sz,
+				buffer_req->align, buffer_req->buf_pool_id,
+				buffer_req->meta_buffer_size);
+			vcd_status = VCD_S_SUCCESS;
 		}
 	}
 	break;
@@ -288,11 +322,7 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 				ddl_set_default_decoder_buffer_req(decoder,
 					true);
 			}
-			if (decoder->cont_mode) {
-				decoder->adaptive_width = decoder->client_frame_size.width;
-				decoder->adaptive_height = decoder->client_frame_size.height;
-			}
-			DDL_MSG_LOW("set VCD_I_FRAME_SIZE width = %d"
+			DDL_MSG_HIGH("set VCD_I_FRAME_SIZE width = %d"
 				" height = %d\n",
 				frame_size->width, frame_size->height);
 			vcd_status = VCD_S_SUCCESS;
@@ -506,6 +536,7 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 	}
 	break;
 	case VCD_REQ_PERF_LEVEL:
+		DDL_MSG_LOW("%s: VCD_REQ_PERF_LEVEL (do nithing)", __func__);
 		vcd_status = VCD_S_SUCCESS;
 		break;
 	default:
@@ -683,8 +714,9 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		struct vcd_property_multi_slice *multi_slice =
 			(struct vcd_property_multi_slice *)
 				property_value;
-		DDL_MSG_HIGH("VCD_I_MULTI_SLICE eMSliceSel %d  nMSliceSize %d"
-				"Tot#of MB %d encoder->frame_size.width = %d"
+		DDL_MSG_HIGH("VCD_I_MULTI_SLICE eMSliceSel %d "\
+				"nMSliceSize %d Tot#of MB %d "\
+				"encoder->frame_size.width = %d "\
 				"encoder->frame_size.height = %d",
 				(int)multi_slice->m_slice_sel,
 				multi_slice->m_slice_size,
@@ -983,8 +1015,8 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 					align_virtual_addr =
 					recon_buffers->kernel_virtual_addr +
 					recon_buffers->ysize;
-				DDL_MSG_LOW("Y::KVirt: %p,KPhys: %p"
-							"UV::KVirt: %p,KPhys: %p\n",
+				DDL_MSG_LOW("Y::KVirt: %p, KPhys: %p "\
+					"UV::KVirt: %p, KPhys: %p\n",
 				encoder->hw_bufs.dpb_y[index_hw_bufs].
 				align_virtual_addr,
 				encoder->hw_bufs.dpb_y[index_hw_bufs].
@@ -994,7 +1026,7 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				encoder->hw_bufs.dpb_c[index_hw_bufs].
 				align_physical_addr);
 				vcd_status = VCD_S_SUCCESS;
-				}
+			}
 		}
 	}
 	break;
@@ -1113,7 +1145,43 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		}
 		break;
 	}
+	case VCD_I_LTR_MODE:
+		if (sizeof(struct vcd_property_ltrmode_type) ==
+			property_hdr->sz && encoder->codec.codec ==
+			VCD_CODEC_H264) {
+			struct vcd_property_ltrmode_type *ltrmode =
+				(struct vcd_property_ltrmode_type *)
+				property_value;
+			encoder->ltr_control.ltrmode.ltr_mode =
+				ltrmode->ltr_mode;
+			DDL_MSG_HIGH("%s: set LTR mode = %u", __func__,
+				(u32)encoder->ltr_control.ltrmode.ltr_mode);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	break;
+	case VCD_I_LTR_COUNT:
+		if (sizeof(struct vcd_property_ltrcount_type) ==
+			property_hdr->sz && encoder->codec.codec ==
+			VCD_CODEC_H264) {
+			struct vcd_property_ltrcount_type *ltrcount =
+				(struct vcd_property_ltrcount_type *)
+				property_value;
+			if (ltrcount->ltr_count > DDL_MAX_NUM_LTR_FRAMES) {
+				DDL_MSG_ERROR("%s: set LTR count failed. "\
+					"LTR count %u beyond maximum of %u",
+					__func__, ltrcount->ltr_count,
+					(u32)DDL_MAX_NUM_LTR_FRAMES);
+			} else {
+				encoder->ltr_control.ltr_count =
+					ltrcount->ltr_count;
+				DDL_MSG_HIGH("%s: set LTR count = %u", __func__,
+					encoder->ltr_control.ltr_count);
+				vcd_status = VCD_S_SUCCESS;
+			}
+		}
+	break;
 	case VCD_REQ_PERF_LEVEL:
+		DDL_MSG_LOW("%s: VCD_REQ_PERF_LEVEL (do nithing)", __func__);
 		vcd_status = VCD_S_SUCCESS;
 		break;
 	case VCD_I_ENABLE_DELIMITER_FLAG:
@@ -1158,8 +1226,30 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		}
 		break;
 	}
+	case VCD_I_PIC_ORDER_CNT_TYPE:
+	{
+		struct vcd_property_pic_order_cnt_type *poc =
+			(struct vcd_property_pic_order_cnt_type *)
+				property_value;
+		if (sizeof(struct vcd_property_pic_order_cnt_type) ==
+			property_hdr->sz &&
+			encoder->codec.codec == VCD_CODEC_H264 &&
+			(poc->poc_type == 0 || poc->poc_type == 2)) {
+			if (encoder->i_period.b_frames &&
+				poc->poc_type) {
+				DDL_MSG_HIGH("bframes = %d. Setting poc to 0",
+					encoder->i_period.b_frames);
+				encoder->pic_order_cnt_type = 0;
+			} else {
+				encoder->pic_order_cnt_type = poc->poc_type;
+			}
+			vcd_status = VCD_S_SUCCESS;
+		}
+		break;
+	}
 	default:
-		DDL_MSG_ERROR("INVALID ID %d\n", (int)property_hdr->prop_id);
+		DDL_MSG_ERROR("%s: INVALID ID 0x%x\n", __func__,
+			(int)property_hdr->prop_id);
 		vcd_status = VCD_ERR_ILLEGAL_OP;
 		break;
 	}
@@ -1190,6 +1280,9 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 			*(struct vcd_property_frame_size *)
 				property_value =
 					decoder->client_frame_size;
+			DDL_MSG_HIGH("get VCD_I_FRAME_SIZE WxH = %ux%u, "\
+				"SxSH = %ux%u", fz_size->width, fz_size->height,
+				fz_size->stride, fz_size->scan_lines);
 			vcd_status = VCD_S_SUCCESS;
 		}
 	break;
@@ -1222,6 +1315,17 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 			*(struct vcd_buffer_requirement *)
 				property_value =
 					decoder->client_input_buf_req;
+			DDL_MSG_HIGH("get DDL_IN_BUF_REQ: min = %u, "\
+				"max = %u, act = %u, size = %u, "\
+				"align = %u, buf_pool_id = %u, "\
+				"meta_buf_size = %u",
+				decoder->client_input_buf_req.min_count,
+				decoder->client_input_buf_req.max_count,
+				decoder->client_input_buf_req.actual_count,
+				decoder->client_input_buf_req.sz,
+				decoder->client_input_buf_req.align,
+				decoder->client_input_buf_req.buf_pool_id,
+				decoder->client_input_buf_req.meta_buffer_size);
 			vcd_status = VCD_S_SUCCESS;
 		}
 	break;
@@ -1230,7 +1334,17 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 			property_hdr->sz) {
 				*(struct vcd_buffer_requirement *)
 			property_value = decoder->client_output_buf_req;
-				vcd_status = VCD_S_SUCCESS;
+			DDL_MSG_HIGH("get DDL_OUT_BUF_REQ: min = %u, "\
+			"max = %u, act = %u, size = %u, align = %u, "\
+			"buf_pool_id = %u, meta_buf_size = %u",
+			decoder->client_output_buf_req.min_count,
+			decoder->client_output_buf_req.max_count,
+			decoder->client_output_buf_req.actual_count,
+			decoder->client_output_buf_req.sz,
+			decoder->client_output_buf_req.align,
+			decoder->client_output_buf_req.buf_pool_id,
+			decoder->client_output_buf_req.meta_buffer_size);
+			vcd_status = VCD_S_SUCCESS;
 		}
 	break;
 	case VCD_I_CODEC:
@@ -1315,7 +1429,7 @@ static u32 ddl_get_dec_property(struct ddl_client_context *ddl,
 		break;
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
-		DDL_MSG_ERROR("Meta Data Interface is Requested");
+		DDL_MSG_HIGH("Meta Data Interface is Requested");
 		vcd_status = ddl_get_metadata_params(ddl, property_hdr,
 			property_value);
 		vcd_status = VCD_S_SUCCESS;
@@ -1674,8 +1788,77 @@ static u32 ddl_get_enc_property(struct ddl_client_context *ddl,
 					= encoder->bitstream_restrict_enable;
 			vcd_status = VCD_S_SUCCESS;
 		}
+	break;
+	case VCD_I_CAPABILITY_LTR_COUNT:
+		if (sizeof(struct vcd_property_range_type) ==
+			property_hdr->sz) {
+			struct vcd_property_range_type capability_ltr_range;
+			capability_ltr_range.max = DDL_MAX_NUM_LTR_FRAMES;
+			capability_ltr_range.min = 1;
+			capability_ltr_range.step_size = 1;
+			*(struct vcd_property_range_type *)property_value =
+				capability_ltr_range;
+			DDL_MSG_HIGH("%s: capability_ltr_count = %u",
+				__func__, ((struct vcd_property_range_type *)
+				property_value)->max);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	break;
+	case VCD_I_LTR_MODE:
+		if (sizeof(struct vcd_property_ltrmode_type) ==
+			property_hdr->sz) {
+			((struct vcd_property_ltrmode_type *)
+				property_value)->ltr_mode =
+				encoder->ltr_control.ltrmode.ltr_mode;
+			DDL_MSG_HIGH("%s: ltr_mode = %u", __func__,
+				(u32)(((struct vcd_property_ltrmode_type *)
+				property_value)->ltr_mode));
+			vcd_status = VCD_S_SUCCESS;
+		}
+	break;
+	case VCD_I_LTR_COUNT:
+		if (sizeof(struct vcd_property_ltrcount_type) ==
+			property_hdr->sz) {
+			struct vcd_property_ltrcount_type ltr_count;
+			ltr_count.ltr_count =
+				encoder->ltr_control.ltr_count;
+			*(struct vcd_property_ltrcount_type *)property_value =
+				ltr_count;
+			DDL_MSG_HIGH("%s: ltr_count = %u", __func__,
+				((struct vcd_property_ltrcount_type *)
+				property_value)->ltr_count);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	break;
+	case VCD_I_LTR_PERIOD:
+		if (sizeof(struct vcd_property_ltrperiod_type) ==
+			property_hdr->sz) {
+			struct vcd_property_ltrperiod_type ltr_period;
+			if (!encoder->ltr_control.ltr_period)
+				ltr_period.ltr_period = 0;
+			else
+				ltr_period.ltr_period =
+			encoder->ltr_control.ltr_period - 1;
+			*(struct vcd_property_ltrperiod_type *)property_value =
+				ltr_period;
+			DDL_MSG_HIGH("%s: ltr_period = %u", __func__,
+				((struct vcd_property_ltrperiod_type *)
+				property_value)->ltr_period);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	break;
+	case VCD_I_PIC_ORDER_CNT_TYPE:
+		if (sizeof(struct vcd_property_pic_order_cnt_type) ==
+			property_hdr->sz) {
+			((struct vcd_property_pic_order_cnt_type *)
+				property_value)->poc_type
+					= encoder->pic_order_cnt_type;
+			vcd_status = VCD_S_SUCCESS;
+		}
 		break;
 	default:
+		DDL_MSG_ERROR("%s: unknown prop_id = 0x%x", __func__,
+			property_hdr->prop_id);
 		vcd_status = VCD_ERR_ILLEGAL_OP;
 		break;
 	}
@@ -1720,6 +1903,12 @@ static u32 ddl_set_enc_dynamic_property(struct ddl_client_context *ddl,
 			property_hdr->sz) {
 			encoder->i_period = *i_period;
 			dynamic_prop_change = DDL_ENC_CHANGE_IPERIOD;
+			if (encoder->i_period.b_frames &&
+				encoder->pic_order_cnt_type) {
+				DDL_MSG_HIGH("bframes = %d. Setting poc to 0",
+					encoder->i_period.b_frames);
+				encoder->pic_order_cnt_type = 0;
+			}
 			vcd_status = VCD_S_SUCCESS;
 		}
 	}
@@ -1764,6 +1953,77 @@ static u32 ddl_set_enc_dynamic_property(struct ddl_client_context *ddl,
 		}
 	}
 	break;
+	case VCD_I_LTR_PERIOD:
+	{
+		if (sizeof(struct vcd_property_ltrperiod_type) ==
+			property_hdr->sz) {
+			struct vcd_property_ltrperiod_type *ltrperiod =
+				(struct vcd_property_ltrperiod_type *)
+				property_value;
+			encoder->ltr_control.ltr_period =
+				(ltrperiod->ltr_period == 0xFFFFFFFF) ?
+				0xFFFFFFFF : (ltrperiod->ltr_period + 1);
+			DDL_MSG_HIGH("%s: set ltr_period = %u", __func__,
+				encoder->ltr_control.ltr_period);
+			vcd_status = VCD_S_SUCCESS;
+		}
+	}
+	break;
+	case VCD_I_LTR_USE:
+	{
+		if (sizeof(struct vcd_property_ltruse_type) ==
+			property_hdr->sz) {
+			struct vcd_property_ltruse_type *ltruse =
+				(struct vcd_property_ltruse_type *)
+				property_value;
+			if (ltruse->ltr_id >= DDL_LTR_FRAME_START_ID) {
+				struct ddl_ltr_encoding_type *ltr_ctrl =
+					&encoder->ltr_control;
+				s32 idx;
+				idx = ddl_find_ltr_from_list(ltr_ctrl,
+					ltruse->ltr_id);
+				if (idx < 0) {
+					ltr_ctrl->callback_reqd = true;
+					ltr_ctrl->failed_use_cmd.ltr_id =
+						ltruse->ltr_id;
+					ltr_ctrl->failed_use_cmd.ltr_frames =
+						ltruse->ltr_frames;
+					DDL_MSG_ERROR("%s: index (%d) "\
+						"not found. Callback requested. "\
+						"ltr_id = %u, ltr_frames = %u",
+						__func__, idx, ltruse->ltr_id,
+						ltruse->ltr_frames);
+				} else {
+					ddl_use_ltr_from_list(ltr_ctrl, idx);
+					ltr_ctrl->ltr_use_frames =
+						ltruse->ltr_frames;
+					if (ltr_ctrl->using == false)
+						ltr_ctrl->\
+							out_frame_cnt_to_use_this_ltr =
+							ltruse->ltr_frames;
+					else
+						ltr_ctrl->\
+							pending_chg_ltr_useframes =
+							true;
+					ltr_ctrl->first_ltr_use_arvd = true;
+					ltr_ctrl->use_ltr_reqd = true;
+					DDL_MSG_HIGH("%s: index (%d) found. "\
+						"num frames to use this ltr_id (%u) "\
+						"is %u", __func__, idx,
+						ltruse->ltr_id, ltruse->ltr_frames);
+				}
+				dynamic_prop_change = DDL_ENC_LTR_USE_FRAME;
+				vcd_status = VCD_S_SUCCESS;
+			} else {
+				DDL_MSG_ERROR("%s: LTRUse ID %d failed. "\
+					"LTR ID starts from %d", __func__,
+					ltruse->ltr_id,
+					(u32)DDL_LTR_FRAME_START_ID);
+					vcd_status = VCD_ERR_ILLEGAL_OP;
+			}
+		}
+	}
+	break;
 	default:
 		vcd_status = VCD_ERR_ILLEGAL_OP;
 		break;
@@ -1791,13 +2051,12 @@ void ddl_set_default_dec_property(struct ddl_client_context *ddl)
 	decoder->client_frame_size.width  = VCD_DDL_TEST_DEFAULT_WIDTH;
 	decoder->client_frame_size.stride = VCD_DDL_TEST_DEFAULT_WIDTH;
 	decoder->client_frame_size.scan_lines = VCD_DDL_TEST_DEFAULT_HEIGHT;
+	decoder->client_input_buf_req.sz = 2 * 1024 * 1024;
 	decoder->progressive_only = 1;
 	decoder->idr_only_decoding = false;
 	decoder->output_order = VCD_DEC_ORDER_DISPLAY;
 	decoder->field_needed_for_prev_ip = 0;
 	decoder->cont_mode = 0;
-	decoder->adaptive_width = 0;
-	decoder->adaptive_height = 0;
 	decoder->reconfig_detected = false;
 	decoder->dmx_disable = false;
 	ddl_set_default_metadata_flag(ddl);
@@ -1833,6 +2092,9 @@ static void ddl_set_default_enc_property(struct ddl_client_context *ddl)
 	encoder->num_references_for_p_frame = DDL_MIN_NUM_REF_FOR_P_FRAME;
 	if (encoder->codec.codec == VCD_CODEC_MPEG4)
 		encoder->closed_gop = true;
+	encoder->intra_period_changed = false;
+	memset(&encoder->ltr_control, 0,
+		sizeof(struct ddl_ltr_encoding_type));
 	ddl_set_default_metadata_flag(ddl);
 	ddl_set_default_encoder_buffer_req(encoder);
 	encoder->slice_delivery_info.enable = 0;
@@ -1993,6 +2255,8 @@ void ddl_set_default_encoder_buffer_req(struct ddl_encoder_data *encoder)
 		encoder->output_buf_req.min_count + 3;
 	encoder->output_buf_req.max_count    = DDL_MAX_BUFFER_COUNT;
 	encoder->output_buf_req.align	= DDL_LINEAR_BUFFER_ALIGN_BYTES;
+	if (y_cb_cr_size >= VCD_DDL_720P_YUV_BUF_SIZE)
+		y_cb_cr_size = y_cb_cr_size>>1;
 	encoder->output_buf_req.sz =
 		DDL_ALIGN(y_cb_cr_size, DDL_KILO_BYTE(4));
 	ddl_set_default_encoder_metadata_buffer_size(encoder);
@@ -2042,7 +2306,6 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 				DDL_MSG_HIGH("Warning: cont_mode dpb count"\
 					"(%u) is less than decoder min dpb count(%u)",
 					min_dpb, decoder->min_dpb_num);
-				min_dpb = decoder->min_dpb_num;
 			}
 		}
 		if ((decoder->buf_format.buffer_format ==
@@ -2091,7 +2354,16 @@ u32 ddl_set_default_decoder_buffer_req(struct ddl_decoder_data *decoder,
 	input_buf_req->min_count = 1;
 	input_buf_req->actual_count = input_buf_req->min_count + 1;
 	input_buf_req->max_count = DDL_MAX_BUFFER_COUNT;
-	input_buf_req->sz = (1024 * 1024 * 2);
+	if (decoder->client_input_buf_req.sz <= DDL_MEGA_BYTE(2)) {
+		input_buf_req->sz = DDL_MEGA_BYTE(2);
+	} else if (decoder->client_input_buf_req.sz <=
+					DDL_MEGA_BYTE(4)) {
+		input_buf_req->sz = DDL_MEGA_BYTE(4);
+	} else {
+		DDL_MSG_ERROR("Setting incorrect input buffer size = %d",
+			decoder->client_input_buf_req.sz);
+		return false;
+	}
 	input_buf_req->align = DDL_LINEAR_BUFFER_ALIGN_BYTES;
 	decoder->min_input_buf_req = *input_buf_req;
 	if (frame_height_actual && frame_size->height > MDP_MIN_TILE_HEIGHT) {
