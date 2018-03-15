@@ -2,7 +2,7 @@
  * include/linux/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, 2014 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,7 +22,6 @@
 #include <linux/types.h>
 
 struct ion_handle;
-typedef struct ion_handle *ion_user_handle_t;
 /**
  * enum ion_heap_types - list of all possible types of heaps
  * @ION_HEAP_TYPE_SYSTEM:	 memory allocated via vmalloc
@@ -244,11 +243,19 @@ void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
 void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle);
 
 /**
- * ion_share_dma_buf() - given an ion client, create a dma-buf fd
+ * ion_share_dma_buf() - share buffer as dma-buf
  * @client:	the client
  * @handle:	the handle
  */
-int ion_share_dma_buf(struct ion_client *client, struct ion_handle *handle);
+struct dma_buf *ion_share_dma_buf(struct ion_client *client,
+						struct ion_handle *handle);
+
+/**
+ * ion_share_dma_buf_fd() - given an ion client, create a dma-buf fd
+ * @client:	the client
+ * @handle:	the handle
+ */
+int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle);
 
 /**
  * ion_import_dma_buf() - given an dma-buf fd from the ion exporter get handle
@@ -379,6 +386,10 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd);
 
+
+
+struct ion_handle *ion_dma_buf_to_handle(struct ion_client *client,
+					 struct dma_buf *dmabuf);
 #else
 static inline void ion_reserve(struct ion_platform_data *data)
 {
@@ -486,6 +497,14 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 	return -ENODEV;
 }
 
+static inline struct ion_handle *ion_dma_buf_to_handle(
+					struct ion_client *client,
+					struct dma_buf *dmabuf)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+
 #endif /* CONFIG_ION */
 #endif /* __KERNEL__ */
 
@@ -511,13 +530,9 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
-#ifdef __KERNEL__
 	unsigned int heap_mask;
-#else
-	unsigned int heap_id_mask;
-#endif
 	unsigned int flags;
-	ion_user_handle_t handle;
+	struct ion_handle *handle;
 };
 
 /**
@@ -531,7 +546,7 @@ struct ion_allocation_data {
  * provides the file descriptor and the kernel returns the handle.
  */
 struct ion_fd_data {
-	ion_user_handle_t handle;
+	struct ion_handle *handle;
 	int fd;
 };
 
@@ -540,7 +555,7 @@ struct ion_fd_data {
  * @handle:	a handle
  */
 struct ion_handle_data {
-	ion_user_handle_t handle;
+	struct ion_handle *handle;
 };
 
 /**
@@ -611,13 +626,5 @@ struct ion_custom_data {
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
 
-/**
- * DOC: ION_IOC_SYNC - syncs a shared file descriptors to memory
- *
- * Deprecated in favor of using the dma_buf api's correctly (syncing
- * will happend automatically when the buffer is mapped to a device).
- * If necessary should be used after touching a cached buffer from the cpu,
- * this will make the buffer in memory coherent.
- */
-#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 7, struct ion_fd_data)
+
 #endif /* _LINUX_ION_H */

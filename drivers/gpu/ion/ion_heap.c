@@ -27,7 +27,7 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	switch ((int) heap_data->type) {
 	case ION_HEAP_TYPE_SYSTEM_CONTIG:
 		pr_err("%s: Heap type is disabled: %d\n", __func__,
-			heap_data->type);
+		heap_data->type);
 		return ERR_PTR(-EINVAL);
 	case ION_HEAP_TYPE_SYSTEM:
 		heap = ion_system_heap_create(heap_data);
