@@ -31,7 +31,6 @@
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
 #include <asm/cputime.h>
-#include <linux/touchboost.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
@@ -105,11 +104,15 @@ static spinlock_t above_hispeed_delay_lock;
 static unsigned int *above_hispeed_delay = default_above_hispeed_delay;
 static int nabove_hispeed_delay = ARRAY_SIZE(default_above_hispeed_delay);
 
+/* Non-zero means indefinite speed boost active */
+static int boost_val;
 /* 1000000us - 1s */
-#define DEFAULT_BOOSTPULSE_DURATION 250000
+#define DEFAULT_BOOSTPULSE_DURATION 1000000
 static int boostpulse_duration_val = DEFAULT_BOOSTPULSE_DURATION;
-#define DEFAULT_INPUT_BOOST_FREQ 1190400
+#define DEFAULT_INPUT_BOOST_FREQ 1242000
 int input_boost_freq = DEFAULT_INPUT_BOOST_FREQ;
+/* End time of boost pulse in ktime converted to usecs */
+static u64 boostpulse_endtime;
 
 /*
  * Making sure cpufreq stays low when it needs to stay low
@@ -119,7 +122,7 @@ int input_boost_freq = DEFAULT_INPUT_BOOST_FREQ;
 /*
  * Default thread migration boost cpufreq
  */
-#define CPU_SYNC_FREQ 1036800
+#define CPU_SYNC_FREQ 1026000
 
 /*
  * Max additional time to wait in idle, beyond timer_rate, at speeds above
@@ -164,6 +167,7 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu)
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	u64 expires;
 	unsigned long flags;
+	u64 now = ktime_to_us(ktime_get());
 
 	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->time_in_idle =
@@ -176,7 +180,7 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu)
 	pcpu->cpu_timer.expires = expires;
 	add_timer_on(&pcpu->cpu_timer, cpu);
 
-	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min) {
+	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min && now < boostpulse_endtime) {
 		expires += usecs_to_jiffies(timer_slack_val);
 		del_timer(&pcpu->cpu_slack_timer);
 		pcpu->cpu_slack_timer.expires = expires;
@@ -195,11 +199,12 @@ static void cpufreq_interactive_timer_start(int cpu)
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	u64 expires = round_to_nw_start(pcpu->last_evaluated_jiffy);
 	unsigned long flags;
+	u64 now = ktime_to_us(ktime_get());
 
 	spin_lock_irqsave(&pcpu->load_lock, flags);
 	pcpu->cpu_timer.expires = expires;
 	add_timer_on(&pcpu->cpu_timer, cpu);
-	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min) {
+	if (timer_slack_val >= 0 && pcpu->target_freq > pcpu->policy->min && now < boostpulse_endtime) {
 		expires += usecs_to_jiffies(timer_slack_val);
 		pcpu->cpu_slack_timer.expires = expires;
 		add_timer_on(&pcpu->cpu_slack_timer, cpu);
@@ -407,7 +412,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->policy->cur;
-	boosted = now < (get_input_time() + boostpulse_duration_val);
+
+	boosted = now < boostpulse_endtime;
+
+	if (!boosted)
+		boost_val = 0;
 
 	cpufreq_notify_utilization(pcpu->policy, cpu_load);
 
@@ -1064,6 +1073,31 @@ static ssize_t store_timer_slack(
 
 define_one_global_rw(timer_slack);
 
+static ssize_t show_boost(struct kobject *kobj, struct attribute *attr,
+			  char *buf)
+{
+	return sprintf(buf, "%d\n", boost_val);
+}
+
+static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
+			   const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+
+	if (ret < 0)
+		return ret;
+
+	boost_val = 1;
+	boostpulse_endtime = ktime_to_us(ktime_get()) + boostpulse_duration_val;
+
+	return count;
+}
+
+define_one_global_rw(boost);
+
 static ssize_t show_boostpulse_duration(
 	struct kobject *kobj, struct attribute *attr, char *buf)
 {
@@ -1118,6 +1152,7 @@ static struct attribute *interactive_attributes[] = {
 	&timer_rate_attr.attr,
 	&input_boost_freq_attr.attr,
 	&timer_slack.attr,
+	&boost.attr,
 	&boostpulse_duration.attr,
 	&io_is_busy_attr.attr,
 	&max_freq_hysteresis_attr.attr,
