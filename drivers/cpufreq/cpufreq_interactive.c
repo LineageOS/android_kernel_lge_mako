@@ -440,6 +440,9 @@ static void cpufreq_interactive_timer(unsigned long data)
 			new_freq = input_boost_freq;
 	}
 
+	if (new_freq > hispeed_freq)
+		new_freq = hispeed_freq;
+
 	if (pcpu->policy->cur >= hispeed_freq &&
 	    new_freq > pcpu->policy->cur &&
 	    now - pcpu->hispeed_validate_time <
