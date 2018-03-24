@@ -458,23 +458,6 @@ config FB_MSM_WRITEBACK_MSM_PANEL
 	---help---
 	  Support for MDP4 OVERLAY write back mode
 
-# need to config multiple mipi panels simultaneously in ASUS project
-config FB_MSM_MIPI_NOVATEK_CMD_MODE
-	bool "MIPI NOVATEK 1080P HD PT Panel"
-	select FB_MSM_MIPI_NOVATEK_1080_HD_PT
-
-config FB_MSM_MIPI_NOVATEK_VIDEO_MODE
-	bool "MIPI NOVATEK 1080P HD PT Panel"
-	select FB_MSM_MIPI_NOVATEK_1080_HD_PT
-
-config FB_MSM_MIPI_LG_VIDEO_MODE
-	bool "MIPI LG 1080P HD PT Panel"
-	select FB_MSM_MIPI_LG_1080_HD_PT
-
-config FB_MSM_MIPI_JDI_CMD_MODE
-	bool "MIPI JDI 1080P HD PT Panel"
-	select FB_MSM_MIPI_JDI_1080_HD_PT
-
 config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
        bool "MIPI LG Display WXGA PT Panel"
        select FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT

@@ -67,16 +67,7 @@ static unsigned char *fbram_phys;
 static int fbram_size;
 static boolean bf_supported;
 
-#if !defined(CONFIG_MACH_APQ8064_FLO) && !defined(CONFIG_MACH_APQ8064_DEB)
 unsigned long backlight_duration = 0;
-#else
-/*
- * Set backlight on resume after 50 ms after first
- * pan display on the panel. This is to avoid panel specific
- * transients during resume.
- */
-unsigned long backlight_duration = (HZ/20);
-#endif
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
 

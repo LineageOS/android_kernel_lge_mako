@@ -43,9 +43,6 @@
 #include "mdp4.h"
 #endif
 #include "mipi_dsi.h"
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-#include <mach/board_asustek.h>
-#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #undef CONFIG_HAS_EARLYSUSPEND
@@ -2590,10 +2587,6 @@ static int mdp_bus_scale_register(void)
 static int bus_index = 1;
 int mdp_bus_scale_update_request(u64 ab, u64 ib)
 {
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-	lcd_type type = asustek_get_lcd_type();
-#endif
-
 	if (mdp_bus_scale_handle < 1) {
 		pr_err("%s invalid bus handle\n", __func__);
 		return -EINVAL;
@@ -2606,24 +2599,9 @@ int mdp_bus_scale_update_request(u64 ab, u64 ib)
 	/* ping pong bus_index between table entry 1 and 2 */
 	bus_index++;
 	bus_index = (bus_index > 2) ? 1 : bus_index;
-
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-	if (type==0) //keep original ab, ib calculation for JDI panel
-#endif
-		mdp_bus_usecases[bus_index].vectors->ab = min(ab, mdp_max_bw);
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-	else
-		mdp_bus_usecases[bus_index].vectors->ab = mdp_max_bw;
-#endif
+	mdp_bus_usecases[bus_index].vectors->ab = min(ab, mdp_max_bw);
 	ib = max(ib, ab);
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-	if (type==0) //keep original ab, ib calculation for JDI panel
-#endif
-		mdp_bus_usecases[bus_index].vectors->ib = min(ib, mdp_max_bw);
-#if defined(CONFIG_MACH_APQ8064_FLO) || defined(CONFIG_MACH_APQ8064_DEB)
-	else
-		mdp_bus_usecases[bus_index].vectors->ib = mdp_max_bw;
-#endif
+	mdp_bus_usecases[bus_index].vectors->ib = min(ib, mdp_max_bw);
 
 	pr_debug("%s: handle=%d index=%d ab=%llu ib=%llu\n", __func__,
 		 (u32)mdp_bus_scale_handle, bus_index,
