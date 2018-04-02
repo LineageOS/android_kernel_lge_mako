@@ -9,6 +9,7 @@ obj-$(CONFIG_FB_BACKLIGHT) += msm_fb_bl.o
 ifeq ($(CONFIG_FB_MSM_MDP_HW),y)
 # MDP
 obj-y += mdp.o
+
 obj-$(CONFIG_MDP_DEBUG_FS) += mdp_debugfs.o
 
 ifeq ($(CONFIG_FB_MSM_MDP40),y)
@@ -119,6 +120,7 @@ obj-$(CONFIG_FB_MSM_MDDI_QUICKVX) += mddi_quickvx.o
 endif
 
 ifeq ($(CONFIG_FB_MSM_MIPI_PANEL_DETECT),y)
+obj-y += mipi_lgit_video_wxga_pt.o
 obj-y += mipi_toshiba_video_wvga_pt.o mipi_toshiba_video_wsvga_pt.o mipi_toshiba_video_wuxga.o
 obj-y += mipi_novatek_video_qhd_pt.o mipi_novatek_cmd_qhd_pt.o
 obj-y += mipi_orise_video_720p_pt.o mipi_orise_cmd_720p_pt.o
