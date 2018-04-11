@@ -27,14 +27,17 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/jiffies.h>
-#include <linux/earlysuspend.h>
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#endif
 
 #define MAKO_HOTPLUG "mako_hotplug"
 
-#define DEFAULT_LOAD_THRESHOLD 80
+#define DEFAULT_LOAD_THRESHOLD 70
 #define DEFAULT_HIGH_LOAD_COUNTER 10
 #define DEFAULT_MAX_LOAD_COUNTER 20
-#define DEFAULT_CPUFREQ_UNPLUG_LIMIT 1250000
+#define DEFAULT_CPUFREQ_UNPLUG_LIMIT 1242000
 #define DEFAULT_MIN_TIME_CPU_ONLINE 1
 #define DEFAULT_TIMER 1
 
@@ -93,7 +96,14 @@ struct hotplug_tunables {
 
 static struct workqueue_struct *wq;
 static struct delayed_work decide_hotplug;
+
+#ifdef CONFIG_FB
+struct notifier_block fb_notif;
+bool fb_suspended;
 static struct work_struct suspend, resume;
+static int fb_notifier_callback(struct notifier_block *self,
+                                unsigned long event, void *data);
+#endif
 
 static inline void cpus_online_work(void)
 {
@@ -245,6 +255,7 @@ reschedule:
 		msecs_to_jiffies(t->timer * HZ));
 }
 
+#ifdef CONFIG_FB
 static void mako_hotplug_suspend(struct work_struct *work)
 {
 	cpus_offline_work();
@@ -258,6 +269,25 @@ static void __ref mako_hotplug_resume(struct work_struct *work)
 
 	pr_info("%s: resume\n", MAKO_HOTPLUG);
 }
+
+static void mako_hotplug_fb_suspend()
+{
+	if (fb_suspended)
+		return;
+
+	queue_work_on(0, wq, &suspend);
+	fb_suspended = true;
+}
+
+static void mako_hotplug_fb_resume()
+{
+	if (!fb_suspended)
+		return;
+
+	queue_work_on(0, wq, &resume);
+	fb_suspended = false;
+}
+#endif
 
 /*
  * Sysfs get/set entries start
@@ -474,14 +504,51 @@ static int __devinit mako_hotplug_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+#ifdef CONFIG_FB
 	INIT_WORK(&resume, mako_hotplug_resume);
 	INIT_WORK(&suspend, mako_hotplug_suspend);
-	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
+#endif
 
+	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 30);
+
+#ifdef CONFIG_FB
+	fb_suspended = false;
+	fb_notif.notifier_call = fb_notifier_callback;
+	fb_register_client(&fb_notif);
+#endif
 err:
 	return ret;
 }
+
+#ifdef CONFIG_FB
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+
+	if (evdata && evdata->data) {
+		if (event == FB_EVENT_BLANK) {
+			blank = evdata->data;
+			switch (*blank) {
+				case FB_BLANK_UNBLANK:
+				case FB_BLANK_NORMAL:
+				case FB_BLANK_VSYNC_SUSPEND:
+				case FB_BLANK_HSYNC_SUSPEND:
+					mako_hotplug_fb_resume();
+					break;
+				default:
+				case FB_BLANK_POWERDOWN:
+					mako_hotplug_fb_suspend();
+					break;
+			}
+		}
+	}
+
+	return 0;
+}
+#endif
 
 static struct platform_device mako_hotplug_device = {
 	.name = MAKO_HOTPLUG,
@@ -491,6 +558,9 @@ static struct platform_device mako_hotplug_device = {
 static int mako_hotplug_remove(struct platform_device *pdev)
 {
 	destroy_workqueue(wq);
+#ifdef CONFIG_FB
+	fb_unregister_client(&fb_notif);
+#endif
 	return 0;
 }
 
