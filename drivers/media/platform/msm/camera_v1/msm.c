@@ -349,7 +349,11 @@ static int msm_camera_v4l2_dqbuf(struct file *f, void *pctx,
 		return -EACCES;
 	}
 	rc = vb2_dqbuf(&pcam_inst->vid_bufq, pb,  f->f_flags & O_NONBLOCK);
-	D("%s, videobuf_dqbuf returns %d\n", __func__, rc);
+	if (rc < 0) {
+		pr_err("%s, videobuf_dqbuf returns %d\n", __func__, rc);
+		mutex_unlock(&pcam_inst->inst_lock);
+		return rc;
+	}
 
 	if (pb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		/* Reject the buffer if planes array was not allocated */
@@ -722,9 +726,23 @@ static int msm_camera_v4l2_subscribe_event(struct v4l2_fh *fh,
 {
 	int rc = 0;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
+
+	if (!fh || !sub) {
+		pr_err("%s: NULL pointer fh 0x%p sub 0x%p",
+			__func__, fh, sub);
+		return -EINVAL;
+	}
+
 	pcam_inst =
 		(struct msm_cam_v4l2_dev_inst *)container_of(fh,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
+
+	if (!pcam_inst) {
+		pr_err("%s: NULL pointer pcam_inst",
+			__func__);
+		return -EINVAL;
+	}
+
 
 	D("%s:fh = 0x%x, type = 0x%x\n", __func__, (u32)fh, sub->type);
 	if (pcam_inst->my_index != 0)
@@ -743,9 +761,22 @@ static int msm_camera_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 {
 	int rc = 0;
 	struct msm_cam_v4l2_dev_inst *pcam_inst;
+
+	if (!fh || !sub) {
+		pr_err("%s: NULL pointer fh 0x%p sub 0x%p",
+			__func__, fh, sub);
+		return -EINVAL;
+	}
+
 	pcam_inst =
 		(struct msm_cam_v4l2_dev_inst *)container_of(fh,
 		struct msm_cam_v4l2_dev_inst, eventHandle);
+
+	if (!pcam_inst) {
+		pr_err("%s: NULL pointer pcam_inst",
+			__func__);
+		return -EINVAL;
+	}
 
 	D("%s: fh = 0x%x\n", __func__, (u32)fh);
 	if (pcam_inst->my_index != 0)
@@ -886,8 +917,10 @@ static int msm_open(struct file *f)
 			goto msm_cam_server_begin_session_failed;
 		}
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		pmctl->client = msm_ion_client_create(-1, "camera");
-		kref_init(&pmctl->refcount);
+		if (!pmctl->client) {
+			pmctl->client = msm_ion_client_create(-1, "camera");
+			kref_init(&pmctl->refcount);
+		}
 		ion_client_created = 1;
 #endif
 
@@ -933,8 +966,10 @@ static int msm_open(struct file *f)
 msm_send_open_server_failed:
 	msm_destroy_v4l2_event_queue(&pcam_inst->eventHandle);
 
-	if (pmctl->mctl_release)
+	if (pmctl->mctl_release) {
 		pmctl->mctl_release(pmctl);
+		pmctl->mctl_release = NULL;
+	}
 mctl_open_failed:
 	if (pcam->use_count == 1) {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -1030,6 +1065,7 @@ void msm_release_ion_client(struct kref *ref)
 		struct msm_cam_media_controller, refcount);
 	pr_err("%s Calling ion_client_destroy\n", __func__);
 	ion_client_destroy(mctl->client);
+	mctl->client = NULL;
 }
 
 static int msm_close(struct file *f)
@@ -1089,8 +1125,10 @@ static int msm_close(struct file *f)
 				pr_err("msm_send_close_server failed %d\n", rc);
 		}
 
-		if (pmctl->mctl_release)
+		if (pmctl->mctl_release) {
 			pmctl->mctl_release(pmctl);
+			pmctl->mctl_release = NULL;
+		}
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 		kref_put(&pmctl->refcount, msm_release_ion_client);
@@ -1151,6 +1189,10 @@ long msm_v4l2_evt_notify(struct msm_cam_media_controller *mctl,
 
 	v4l2_ev.id = 0;
 	pcam = mctl->pcam_ptr;
+	if(!pcam) {
+		pr_err("%s: pcam is NULL\n", __func__);
+		return -EINVAL;
+	}
 	ktime_get_ts(&v4l2_ev.timestamp);
 	v4l2_event_queue(pcam->pvdev, &v4l2_ev);
 	return 0;
