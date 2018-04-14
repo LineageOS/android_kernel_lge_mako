@@ -23,6 +23,7 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 #include <media/msm_isp.h>
+#include <linux/debugfs.h>
 
 #include "msm.h"
 #include "msm_cam_server.h"
@@ -48,6 +49,16 @@ atomic_t irq_cnt;
 	(((ping_pong) & (1 << (chn))) == 0 ?   \
 	vfe32_put_ch_pong_addr((base), (chn), (addr)) : \
 	vfe32_put_ch_ping_addr((base), (chn), (addr)))
+
+#if defined(CONFIG_DEBUG_FS)
+#define VFE_DEBUG_BUF_SIZE 2048
+
+static char read_buffer[VFE_DEBUG_BUF_SIZE];
+static struct dentry *dent_vfe;
+static void __iomem *debugfs_base;
+static int  debugfs_reg_total;
+static void msm_vfe32_debugfs_init(void);
+#endif
 
 static uint32_t vfe_clk_rate;
 static void vfe32_send_isp_msg(struct v4l2_subdev *sd,
@@ -5156,6 +5167,11 @@ int msm_axi_subdev_init(struct v4l2_subdev *sd)
 
 	enable_irq(axi_ctrl->vfeirq->start);
 
+#if defined(CONFIG_DEBUG_FS)
+	debugfs_base = axi_ctrl->share_ctrl->vfebase;
+	debugfs_reg_total = axi_ctrl->share_ctrl->register_total;
+	msm_vfe32_debugfs_init();
+#endif
 	return rc;
 
 #ifdef CONFIG_MSM_IOMMU
@@ -5228,6 +5244,12 @@ void msm_axi_subdev_release(struct v4l2_subdev *sd)
 
 	iounmap(axi_ctrl->share_ctrl->vfebase);
 	axi_ctrl->share_ctrl->vfebase = NULL;
+
+#if defined(CONFIG_DEBUG_FS)
+	debugfs_base = axi_ctrl->share_ctrl->vfebase;
+	debugfs_reg_total = 0;
+	debugfs_remove_recursive(dent_vfe);
+#endif
 
 	if (atomic_read(&irq_cnt))
 		pr_warning("%s, Warning IRQ Count not ZERO\n", __func__);
@@ -6079,47 +6101,288 @@ static void msm_axi_process_irq(struct v4l2_subdev *sd, void *arg)
 	}
 }
 
+#if defined(CONFIG_DEBUG_FS)
+static ssize_t dump_vfe_registers(struct file *file, char __user *buff,
+	size_t count, loff_t *ppos)
+{
+
+	/* msm_camera_io_dump() */
+	char *p_str;
+	int i = 0, len = 0, total = 0, buflen = VFE_DEBUG_BUF_SIZE;
+	u32 *p = (u32 *)debugfs_base;
+	u32 data = 0;
+
+	read_buffer[0] = '\0';
+	p_str = read_buffer;
+
+	/* read done? */
+	if (*ppos)
+		return 0;
+
+	/* Is VFE active? */
+	if (!debugfs_base || !debugfs_reg_total)
+		return 0;
+
+	len = snprintf(p_str, buflen, "\nAddr: %p Size: %d\n",
+		debugfs_base, debugfs_reg_total);
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	for (i = 0; i < debugfs_reg_total/4; i++) {
+		if (i % 4 == 0) {
+			len = snprintf(p_str, buflen, "%08x: ", (u32) p);
+			p_str += len;
+			total += len;
+			buflen -= len;
+		}
+		data = readl_relaxed(p++);
+		len = snprintf(p_str, buflen, "%08x ", data);
+		p_str += len;
+		total += len;
+		buflen -= len;
+
+		if ((i + 1) % 4 == 0) {
+			len = snprintf(p_str, buflen, " \n");
+			p_str += len;
+			total += len;
+			buflen -= len;
+		}
+	}
+	len = snprintf(p_str, buflen, " \n\n");
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	p_str = '\0';
+	total++;
+
+	if (copy_to_user(buff, read_buffer, total))
+		return -EFAULT;
+
+	/* read 'total' bytes */
+	*ppos += total;
+
+	return total;
+}
+
+static const struct file_operations vfe_reg_dump_fops = {
+	.read = dump_vfe_registers,
+};
+
+static ssize_t read_vfe_config(struct file *file, char __user *buff,
+        size_t count, loff_t *ppos)
+{
+	char *p_str;
+	int len = 0, total = 0, buflen = VFE_DEBUG_BUF_SIZE;
+	u32 temp1, temp2, temp3, temp4;
+	u32 data = 0;
+
+	read_buffer[0] = '\0';
+	p_str = read_buffer;
+
+        /* read done? */
+        if (*ppos)
+                return 0;
+
+	/* Is VFE active? */
+	if (!debugfs_base || !debugfs_reg_total)
+		return 0;
+
+	len = snprintf(p_str, buflen, "\nVFE Configuration: \n\n");
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	/* Read CAMIF crop config */
+	data = msm_camera_io_r(debugfs_base + 0x01F0);
+	temp1 = (data & 0x1FFF);           /* lastPixel  */
+	temp2 = (data & 0x1FFF0000) >> 16; /* firstPixel */
+
+	data = msm_camera_io_r(debugfs_base + 0x01F4);
+	temp3 = (data & 0x1FFF);           /* lastLine  */
+	temp4 = (data & 0x1FFF0000) >> 16; /* firstLine */
+
+	len = snprintf(p_str, buflen,
+		"\nCAMIF: Width - %d | Height - %d\n",
+		(temp1 - temp2) + 1, (temp3 - temp4) + 1);
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+
+	/* Read FOV config */
+	data = msm_camera_io_r(debugfs_base + 0x0360);
+	temp1 = (data & 0x1FFF);           /* lastPixel  */
+	temp2 = (data & 0x1FFF0000) >> 16; /* firstPixel */
+
+	data = msm_camera_io_r(debugfs_base + 0x0364);
+	temp3 = (data & 0x0FFF);           /* lastLine  */
+	temp4 = (data & 0xFFF0000) >> 16;  /* firstLine */
+
+	len = snprintf(p_str, buflen,
+		"\nFOV: Width - %d | Height - %d\n",
+		(temp1 - temp2) + 1, (temp3 - temp4) + 1);
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+
+	/* Read Main scaler config */
+	data = msm_camera_io_r(debugfs_base + 0x036C);
+	temp1 = (data & 0x1FFF);           /* inWidth  */
+	temp3 = (data & 0x1FFF0000) >> 16; /* outWidth */
+
+	data = msm_camera_io_r(debugfs_base + 0x0378);
+	temp2 = (data & 0x1FFF);           /* inHeight  */
+	temp4 = (data & 0x1FFF0000) >> 16; /* outHeight */
+
+	len = snprintf(p_str, buflen,
+		"\nMain scaler: Input - %d x %d | Output - %d x %d\n",
+		temp1, temp2, temp3, temp4);
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	/* Read Secondary scaler config */
+	data = msm_camera_io_r(debugfs_base + 0x04D4);
+	temp1 = (data & 0x1FFF);           /* inWidth  */
+	temp3 = (data & 0x1FFF0000) >> 16; /* outWidth */
+
+	data = msm_camera_io_r(debugfs_base + 0x04DC);
+	temp2 = (data & 0x1FFF);           /* inHeight  */
+	temp4 = (data & 0x1FFF0000) >> 16; /* outHeight */
+
+	len = snprintf(p_str, buflen,
+		"\nSecondary scaler: Input - %d x %d | Output - %d x %d\n",
+		temp1, temp2, temp3, temp4);
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	/* End of configuration */
+	len = snprintf(p_str, buflen, " \n\n");
+	p_str += len;
+	total += len;
+	buflen -= len;
+
+	p_str = '\0';
+	total++;
+
+	if (copy_to_user(buff, read_buffer, total))
+		return -EFAULT;
+
+	/* read 'total' bytes */
+	*ppos += total;
+
+	return total;
+}
+
+static const struct file_operations vfe_config_fops = {
+	.read = read_vfe_config,
+};
+
+static void msm_vfe32_debugfs_init()
+{
+	dent_vfe = debugfs_create_dir("vfe", NULL);
+
+	if (IS_ERR(dent_vfe)) {
+		pr_err("%s: debugfs_create_dir failed, error %ld\n",
+			__func__, PTR_ERR(dent_vfe));
+		return;
+	}
+
+	if (debugfs_create_file("reg_dump", 0644, dent_vfe, 0,
+			&vfe_reg_dump_fops) == NULL) {
+		pr_err("%s: debugfs_create_file: reg_dump fail\n", __func__);
+		debugfs_remove_recursive(dent_vfe);
+		return;
+	}
+
+	if (debugfs_create_file("vfe_config", 0644, dent_vfe, 0,
+			&vfe_config_fops) == NULL) {
+		pr_err("%s: debugfs_create_file: vfe_config fail\n", __func__);
+		debugfs_remove_recursive(dent_vfe);
+		return;
+	}
+}
+#endif
+
 static int msm_axi_buf_cfg(struct v4l2_subdev *sd, void __user *arg)
 {
-	struct msm_camvfe_params *vfe_params =
-		(struct msm_camvfe_params *)arg;
-	struct msm_vfe_cfg_cmd *cmd = vfe_params->vfe_cfg;
+	struct msm_camvfe_params vfe_params;
+	struct msm_vfe_cfg_cmd cmd;
+	struct msm_free_buf data;
 	struct axi_ctrl_t *axi_ctrl = v4l2_get_subdevdata(sd);
-	void *data = vfe_params->data;
 	int rc = 0;
+
+	if (copy_from_user(&vfe_params,
+			arg,
+			sizeof(struct msm_camvfe_params))) {
+		pr_err("%s:%d copy from user failed", __func__, __LINE__);
+		return -EFAULT;
+	}
+	if (copy_from_user(&cmd,
+			vfe_params.vfe_cfg,
+			sizeof(struct msm_vfe_cfg_cmd))) {
+		pr_err("%s:%d copy from user failed", __func__, __LINE__);
+		return -EFAULT;
+	}
+	if (copy_from_user(&data,
+			vfe_params.data,
+			sizeof(struct msm_free_buf))) {
+		pr_err("%s:%d copy from user failed", __func__, __LINE__);
+		return -EFAULT;
+	}
 
 	if (!axi_ctrl->share_ctrl->vfebase) {
 		pr_err("%s: base address unmapped\n", __func__);
 		return -EFAULT;
 	}
 
-	switch (cmd->cmd_type) {
+	switch (cmd.cmd_type) {
 	case CMD_CONFIG_PING_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe32_output_ch *outch =
-			vfe32_get_ch(path, axi_ctrl->share_ctrl);
-		outch->ping = *((struct msm_free_buf *)data);
+		int path;
+		struct vfe32_output_ch *outch;
+		if (copy_from_user(&path, cmd.value, sizeof(int))) {
+			pr_err("%s:%d copy from user failed",
+					__func__, __LINE__);
+			return -EFAULT;
+		}
+
+		outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
+		outch->ping = data;
 	}
 		break;
 
 	case CMD_CONFIG_PONG_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe32_output_ch *outch =
-			vfe32_get_ch(path, axi_ctrl->share_ctrl);
-		outch->pong = *((struct msm_free_buf *)data);
+		int path;
+		struct vfe32_output_ch *outch;
+		if (copy_from_user(&path, cmd.value, sizeof(int))) {
+			pr_err("%s:%d copy from user failed",
+					__func__, __LINE__);
+			return -EFAULT;
+		}
+		outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
+		outch->pong = data;
 	}
 		break;
 
 	case CMD_CONFIG_FREE_BUF_ADDR: {
-		int path = *((int *)cmd->value);
-		struct vfe32_output_ch *outch =
-			vfe32_get_ch(path, axi_ctrl->share_ctrl);
-		outch->free_buf = *((struct msm_free_buf *)data);
+		int path;
+		struct vfe32_output_ch *outch;
+		if (copy_from_user(&path, cmd.value, sizeof(int))) {
+			pr_err("%s:%d copy from user failed",
+					__func__, __LINE__);
+			return -EFAULT;
+		}
+		outch = vfe32_get_ch(path, axi_ctrl->share_ctrl);
+		outch->free_buf = data;
 	}
 		break;
 	default:
 		pr_err("%s Unsupported AXI Buf config %x ", __func__,
-			cmd->cmd_type);
+			cmd.cmd_type);
 	}
 	return rc;
 };

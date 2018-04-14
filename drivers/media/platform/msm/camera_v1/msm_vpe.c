@@ -154,16 +154,24 @@ static int msm_vpe_cfg_update(void *pinfo)
 	return rc;
 }
 
-void vpe_update_scale_coef(uint32_t *p)
+int vpe_update_scale_coef(uint32_t *p)
 {
 	uint32_t i, offset;
 	offset = *p;
+
+	if (offset > VPE_SCALE_COEFF_MAX_N-VPE_SCALE_COEFF_NUM) {
+		pr_err("%s: invalid offset %d passed in", __func__, offset);
+		return -EINVAL;
+	}
+
 	for (i = offset; i < (VPE_SCALE_COEFF_NUM + offset); i++) {
 		msm_camera_io_w(*(++p),
 			vpe_ctrl->vpebase + VPE_SCALE_COEFF_LSBn(i));
 		msm_camera_io_w(*(++p),
 			vpe_ctrl->vpebase + VPE_SCALE_COEFF_MSBn(i));
 	}
+
+	return 0;
 }
 
 void vpe_input_plane_config(uint32_t *p)
@@ -790,8 +798,7 @@ static int msm_vpe_process_vpe_cmd(struct msm_vpe_cfg_cmd *vpe_cmd,
 			break;
 		}
 
-		vpe_cmd->value = (void *)&scaler_cfg;
-		vpe_update_scale_coef(vpe_cmd->value);
+		rc = vpe_update_scale_coef((uint32_t *)scaler_cfg.scaler_cfg);
 		break;
 		}
 
@@ -819,6 +826,19 @@ static int msm_vpe_process_vpe_cmd(struct msm_vpe_cfg_cmd *vpe_cmd,
 		if (rc) {
 			ERR_COPY_FROM_USER();
 			kfree(zoom);
+			break;
+		}
+
+		if ((zoom->pp_frame_cmd.src_frame.num_planes >
+			VIDEO_MAX_PLANES) ||
+			(zoom->pp_frame_cmd.dest_frame.num_planes >
+			VIDEO_MAX_PLANES)) {
+			pr_err("%s: num_planes out of range src %d dest %d",
+				__func__,
+				zoom->pp_frame_cmd.src_frame.num_planes,
+				zoom->pp_frame_cmd.dest_frame.num_planes);
+			kfree(zoom);
+			rc = -EINVAL;
 			break;
 		}
 
@@ -898,7 +918,7 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 	mctl = v4l2_get_subdev_hostdata(sd);
 	switch (cmd) {
 	case VIDIOC_MSM_VPE_INIT: {
-		msm_vpe_subdev_init(sd);
+		rc = msm_vpe_subdev_init(sd);
 		break;
 		}
 
@@ -946,8 +966,12 @@ static long msm_vpe_subdev_ioctl(struct v4l2_subdev *sd,
 			pp_event_info.ack.cmd, pp_event_info.ack.status,
 			pp_event_info.ack.cookie);
 		if (copy_to_user((void __user *)v4l2_ioctl->ioctl_ptr,
-			&pp_event_info,	sizeof(struct msm_mctl_pp_event_info)))
+			&pp_event_info,	sizeof(struct msm_mctl_pp_event_info))) {
+			kfree(pp_frame_info);
+			kfree(event_qcmd);
 			pr_err("%s PAYLOAD Copy to user failed ", __func__);
+	                return -EINVAL;
+		 }
 
 		kfree(pp_frame_info);
 		event_qcmd->command = NULL;
