@@ -231,7 +231,6 @@ static void add_uid_io_stats(struct uid_entry *uid_entry,
 	io_slot->write_bytes += compute_write_bytes(task);
 	io_slot->rchar += task->ioac.rchar;
 	io_slot->wchar += task->ioac.wchar;
-	io_slot->fsync += task->ioac.syscfs;
 }
 
 static void compute_uid_io_bucket_stats(struct io_stats *io_bucket,

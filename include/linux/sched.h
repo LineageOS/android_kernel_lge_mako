@@ -2845,11 +2845,6 @@ static inline void inc_syscw(struct task_struct *tsk)
 {
 	tsk->ioac.syscw++;
 }
-
-static inline void inc_syscfs(struct task_struct *tsk)
-{
-	tsk->ioac.syscfs++;
-}
 #else
 static inline void add_rchar(struct task_struct *tsk, ssize_t amt)
 {
@@ -2864,10 +2859,6 @@ static inline void inc_syscr(struct task_struct *tsk)
 }
 
 static inline void inc_syscw(struct task_struct *tsk)
-{
-}
-
-static inline void inc_syscfs(struct task_struct *tsk)
 {
 }
 #endif
