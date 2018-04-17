@@ -109,6 +109,9 @@ static inline void cpus_online_work(void)
 {
 	unsigned int cpu;
 
+	if (fb_suspended)
+		return;
+
 	for (cpu = 2; cpu < 4; cpu++) {
 		if (cpu_is_offline(cpu))
 			cpu_up(cpu);
@@ -260,32 +263,32 @@ static void mako_hotplug_suspend(struct work_struct *work)
 {
 	cpus_offline_work();
 
-	pr_info("%s: suspend\n", MAKO_HOTPLUG);
+	pr_info("%s: fb suspend\n", MAKO_HOTPLUG);
 }
 
 static void __ref mako_hotplug_resume(struct work_struct *work)
 {
 	cpus_online_work();
 
-	pr_info("%s: resume\n", MAKO_HOTPLUG);
+	pr_info("%s: fb resume\n", MAKO_HOTPLUG);
 }
 
-static void mako_hotplug_fb_suspend()
+static void mako_hotplug_fb_suspend(void)
 {
 	if (fb_suspended)
 		return;
 
-	queue_work_on(0, wq, &suspend);
 	fb_suspended = true;
+	queue_work_on(0, wq, &suspend);
 }
 
-static void mako_hotplug_fb_resume()
+static void mako_hotplug_fb_resume(void)
 {
 	if (!fb_suspended)
 		return;
 
-	queue_work_on(0, wq, &resume);
 	fb_suspended = false;
+	queue_work_on(0, wq, &resume);
 }
 #endif
 
