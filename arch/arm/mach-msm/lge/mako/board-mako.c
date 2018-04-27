@@ -551,7 +551,7 @@ static void __init reserve_ion_memory(void)
 
 			if (fixed_position != NOT_FIXED)
 				fixed_size += heap->size;
-			else
+			else if (!use_cma)
 				reserve_mem_for_ion(MEMTYPE_EBI1, heap->size);
 
 			if (fixed_position == FIXED_LOW) {
@@ -655,9 +655,12 @@ static void __init reserve_ion_memory(void)
 						0xa0000000);
 					WARN_ON(ret);
 				}
-				pdata->secure_base = fixed_middle_start
-								- HOLE_SIZE;
-				pdata->secure_size = HOLE_SIZE + heap->size;
+				if (pdata) {
+					pdata->secure_base = fixed_middle_start
+					    - HOLE_SIZE;
+					pdata->secure_size =
+					    HOLE_SIZE + heap->size;
+				}
 				break;
 			case FIXED_HIGH:
 				heap->base = fixed_high_start;
