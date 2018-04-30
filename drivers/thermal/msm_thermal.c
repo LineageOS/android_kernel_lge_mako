@@ -25,7 +25,7 @@
 #include <linux/of.h>
 #include <mach/cpufreq.h>
 
-unsigned int temp_threshold = 65;
+unsigned int temp_threshold = 60;
 module_param(temp_threshold, int, 0755);
 
 static struct thermal_info {
@@ -35,8 +35,8 @@ static struct thermal_info {
 	bool throttling;
 	bool pending_change;
 } info = {
-	.cpuinfo_max_freq = LONG_MAX,
-	.limited_max_freq = LONG_MAX,
+	.cpuinfo_max_freq = 1512000,
+	.limited_max_freq = 1512000,
 	.safe_diff = 5,
 	.pending_change = false,
 	.throttling = false,
