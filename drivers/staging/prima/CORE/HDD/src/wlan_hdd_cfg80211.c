@@ -3948,10 +3948,10 @@ wlan_hdd_cfg80211_inform_bss_frame( hdd_adapter_t *pAdapter,
         ((ie_length != 0) ? (const char *)&bss_desc->ieFields: NULL);
     unsigned int freq;
     struct ieee80211_channel *chan;
-    struct ieee80211_mgmt *mgmt =
-        kzalloc((sizeof (struct ieee80211_mgmt) + ie_length), GFP_KERNEL);
+    struct ieee80211_mgmt *mgmt = NULL;
     struct cfg80211_bss *bss_status = NULL;
-    size_t frame_len = sizeof (struct ieee80211_mgmt) + ie_length;
+    size_t frame_len = sizeof(tSirMacMgmtHdr) + SIR_MAC_B_PR_SSID_OFFSET +
+                       ie_length;
     int rssi = 0;
     hdd_context_t *pHddCtx;
     int status;
@@ -3961,8 +3961,14 @@ wlan_hdd_cfg80211_inform_bss_frame( hdd_adapter_t *pAdapter,
 
     ENTER();
 
+    mgmt = kzalloc(frame_len, GFP_KERNEL);
+
     if (!mgmt)
+    {
+        VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+                   "%s: memory allocation failed ", __func__);
         return NULL;
+    }
 
     pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     status = wlan_hdd_validate_context(pHddCtx);
